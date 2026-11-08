@@ -1,0 +1,6 @@
+{
+  "name": "موسوعة السادس",
+  "description": "الكتاب التفاعلي الشامل لمنهج السادس الإعدادي العراقي نصاً من الغلاف للغلاف مع مختبر رسوم 4K ثلاثية الأبعاد وأجوبة الكنترول الوزارية خطوة بخطوة وخطة الـ 100 المبهجة",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

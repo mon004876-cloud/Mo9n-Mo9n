@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Three.js & Google Model Viewer 360° 4K Lab</title>
+
+    <!-- Load Three.js & GLTFExporter & OrbitControls + Google Model Viewer (<model-viewer>) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/GLTFExporter.js"></script>
+    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: radial-gradient(circle at 50% 35%, #1e293b 0%, #090d16 100%);
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+        #three-container {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+        }
+        model-viewer {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 3;
+            background-color: transparent;
+            --poster-color: transparent;
+            display: none;
+        }
+        #engine-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 10;
+            background: rgba(13, 148, 136, 0.90);
+            color: #ffffff;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            border: 1px solid rgba(255, 255, 255, 0.35);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            pointer-events: none;
+        }
+        #angle-readout {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 10;
+            background: rgba(15, 23, 42, 0.82);
+            color: #38bdf8;
+            padding: 5px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 700;
+            border: 1px solid rgba(56, 189, 248, 0.4);
+            pointer-events: none;
+        }
+        .hotspot-label {
+            position: absolute;
+            z-index: 8;
+            transform: translate(-50%, -50%);
+            background: rgba(15, 23, 42, 0.88);
+            color: #ffffff;
+            padding: 4px 9px;
+            border-radius: 14px;
+            font-size: 11px;
+            font-weight: 700;
+            border: 1.5px solid #14b8a6;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: transform 0.15s ease, background 0.15s ease;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.45);
+        }
+        .hotspot-label.selected {
+            background: #f43f5e;
+            border-color: #fde047;
+            transform: translate(-50%, -50%) scale(1.14);
+            z-index: 9;
+        }
+        .hotspot-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #fde047;
+            margin-left: 5px;
+        }
+        /* Google Model Viewer native hotspot styling */
+        .mv-hotspot {
+            background: rgba(13, 148, 136, 0.92);
+            color: #fff;
+            border: 2px solid #fde047;
+            border-radius: 16px;
+            padding: 4px 10px;
+            font-size: 11px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+        }
+    </style>
+</head>
+<body>
+    <div id="engine-badge">Three.js WebGL 360° + Google &lt;model-viewer&gt;</div>
+    <div id="angle-readout">360° Orbit Ready</div>
+
+    <!-- Three.js WebGL Viewport -->
+    <div id="three-container"></div>
+    <div id="labels-overlay"></div>
+
+    <!-- Google <model-viewer> Web Component -->
+    <model-viewer
+        id="google-model-viewer"
+        camera-controls
+        auto-rotate
+        rotation-per-second="32deg"
+        shadow-intensity="1.2"
+        exposure="1.1"
+        environment-image="neutral"
+        interaction-prompt="auto"
+        touch-action="none">
+    </model-viewer>
+
+    <script>
+        let currentModelId = "model_bio_mitochondria";
+        let currentEngine = "THREE_JS"; // "THREE_JS" or "MODEL_VIEWER"
+        let selectedPartId = "part_cristae";
+        let explodeFactor = 0.25;
+        let simIntensity = 2.5;
+        let autoRotateEnabled = true;
+
+        const container = document.getElementById('three-container');
+        const labelsOverlay = document.getElementById('labels-overlay');
+        const modelViewerEl = document.getElementById('google-model-viewer');
+        const engineBadge = document.getElementById('engine-badge');
+        const angleReadout = document.getElementById('angle-readout');
+
+        let scene, camera, renderer, controls, rootGroup, particleGroup;
+        let hotspotAnchors = [];
+        let clock = new THREE.Clock();
+
+        const MODEL_PARTS = {
+            "model_bio_mitochondria": [
+                { id: "part_cristae", name: "الأعراف (Cristae)", pos: [0.65, 0.15, 0.35] },
+                { id: "part_outer_membrane", name: "الغشاء المزدوج", pos: [1.15, -0.35, -0.25] },
+                { id: "part_matrix_enzymes", name: "الإنزيمات التنفسية و ATP", pos: [0.55, -0.45, 0.45] },
+                { id: "part_chloroplast_grana", name: "الكرانا (Grana)", pos: [-0.85, -0.48, 0.30] },
+                { id: "part_nucleus_nucleolus", name: "النوية والشبكة الكروماتينية", pos: [-0.80, 0.42, -0.20] }
+            ],
+            "model_phys_capacitor": [
+                { id: "part_plates", name: "الصفيحتان المتوازيتان (A)", pos: [-0.30, 0.72, 0.35] },
+                { id: "part_dielectric_slab", name: "اللوح العازل (k)", pos: [0.40, 0.0, 0.50] },
+                { id: "part_electric_field", name: "المجال الكهربائي (E)", pos: [-0.55, 0.05, -0.35] },
+                { id: "part_voltmeter", name: "الفولطميتر وفرق الجهد (ΔV)", pos: [0.95, -0.75, 0.40] }
+            ],
+            "model_chem_daniell": [
+                { id: "part_zinc_anode", name: "قطب الأنود - الخارصين (Zn)", pos: [-0.90, -0.10, 0.38] },
+                { id: "part_copper_cathode", name: "قطب الكاثود - النحاس (Cu)", pos: [0.90, -0.10, 0.38] },
+                { id: "part_salt_bridge", name: "الجسر الملحي (U)", pos: [0.0, 0.42, 0.35] },
+                { id: "part_external_wire", name: "السلك الخارجي ومقياس التيار", pos: [0.0, 1.05, 0.0] }
+            ]
+        };
+
+        function initThreeScene() {
+            if (typeof THREE === 'undefined') {
+                engineBadge.textContent = "Three.js Fallback Mode";
+                return;
+            }
+
+            scene = new THREE.Scene();
+
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.set(0, 1.4, 4.2);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio || 2, 3));
+            renderer.shadowMap.enabled = true;
+            container.innerHTML = '';
+            container.appendChild(renderer.domElement);
+
+            // Studio 4K Lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
+            scene.add(ambientLight);
+
+            const dirLight1 = new THREE.DirectionalLight(0xffffff, 1.15);
+            dirLight1.position.set(4, 6, 5);
+            scene.add(dirLight1);
+
+            const dirLight2 = new THREE.DirectionalLight(0x38bdf8, 0.65);
+            dirLight2.position.set(-5, -3, -4);
+            scene.add(dirLight2);
+
+            const pointLight = new THREE.PointLight(0xfacc15, 0.8, 10);
+            pointLight.position.set(0, 2, 2);
+            scene.add(pointLight);
+
+            // 360° Orbital Reference Grid Ring
+            const ringGeo = new THREE.RingGeometry(1.85, 1.88, 64);
+            const ringMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide, transparent: true, opacity: 0.30 });
+            const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+            ringMesh.rotation.x = Math.PI / 2;
+            ringMesh.position.y = -1.15;
+            scene.add(ringMesh);
+
+            rootGroup = new THREE.Group();
+            scene.add(rootGroup);
+
+            particleGroup = new THREE.Group();
+            scene.add(particleGroup);
+
+            if (THREE.OrbitControls) {
+                controls = new THREE.OrbitControls(camera, renderer.domElement);
+                controls.enableDamping = true;
+                controls.dampingFactor = 0.06;
+                controls.enablePan = false;
+                controls.minDistance = 2.0;
+                controls.maxDistance = 7.5;
+                // Allow full 360° horizontal and vertical orbit
+                controls.minPolarAngle = 0;
+                controls.maxPolarAngle = Math.PI;
+                controls.autoRotate = autoRotateEnabled;
+                controls.autoRotateSpeed = 2.2;
+            }
+
+            build3DModelGeometry(currentModelId);
+
+            window.addEventListener('resize', () => {
+                if (!camera || !renderer) return;
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+
+            animate();
+        }
+
+        function clearGroup(group) {
+            while (group.children.length > 0) {
+                const obj = group.children[0];
+                group.remove(obj);
+            }
+        }
+
+        function build3DModelGeometry(modelId) {
+            if (!rootGroup) return;
+            clearGroup(rootGroup);
+            clearGroup(particleGroup);
+
+            const ex = 1 + explodeFactor * 0.55;
+
+            if (modelId === "model_bio_mitochondria") {
+                // 1. RIGHT SIDE: 3D Mitochondrion Outer Membrane Cutaway Capsule
+                const mitoGroup = new THREE.Group();
+                mitoGroup.position.set(0.65 * ex, 0, 0);
+
+                const outerGeo = new THREE.SphereGeometry(0.68, 36, 28, 0, Math.PI * 1.45);
+                outerGeo.scale(0.85, 1.35, 0.85);
+                const outerMat = new THREE.MeshPhysicalMaterial({
+                    color: 0xea580c,
+                    roughness: 0.25,
+                    metalness: 0.1,
+                    clearcoat: 0.6,
+                    side: THREE.DoubleSide
+                });
+                const outerMesh = new THREE.Mesh(outerGeo, outerMat);
+                mitoGroup.add(outerMesh);
+
+                // Inner Membrane & Folded Cristae (الأعراف)
+                const cristaMat = new THREE.MeshStandardMaterial({
+                    color: 0xf43f5e,
+                    roughness: 0.3,
+                    metalness: 0.15,
+                    emissive: 0x881337,
+                    emissiveIntensity: 0.25
+                });
+                [-0.45, -0.22, 0.0, 0.22, 0.45].forEach((yPos, idx) => {
+                    const torusGeo = new THREE.TorusGeometry(0.36 - Math.abs(yPos)*0.25, 0.055, 16, 32, Math.PI * 1.3);
+                    const torus = new THREE.Mesh(torusGeo, cristaMat);
+                    torus.rotation.x = Math.PI / 2;
+                    torus.position.set(0, yPos * ex, 0.08 * ex);
+                    mitoGroup.add(torus);
+                });
+
+                // Glowing ATP Synthase Granules inside Matrix
+                const atpGeo = new THREE.SphereGeometry(0.055, 16, 16);
+                const atpMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, emissive: 0xf59e0b, emissiveIntensity: 0.8 });
+                for (let i = 0; i < 10; i++) {
+                    const sp = new THREE.Mesh(atpGeo, atpMat);
+                    sp.position.set(
+                        (Math.sin(i * 1.7) * 0.26),
+                        (i - 4.5) * 0.12,
+                        0.15 + Math.cos(i * 1.3) * 0.15
+                    );
+                    mitoGroup.add(sp);
+                }
+                rootGroup.add(mitoGroup);
+
+                // 2. LEFT SIDE: 3D Plant Cell Hexagonal Wall, Nucleus & Chloroplast Grana
+                const cellGroup = new THREE.Group();
+                cellGroup.position.set(-0.75 * ex, 0, 0);
+
+                // Plant Cell Wall (Cellulose + Lignin)
+                const wallGeo = new THREE.CylinderGeometry(0.68, 0.68, 1.55, 6, 1, true);
+                const wallMat = new THREE.MeshPhysicalMaterial({
+                    color: 0x0d9488,
+                    roughness: 0.3,
+                    transmission: 0.35,
+                    transparent: true,
+                    opacity: 0.82,
+                    side: THREE.DoubleSide
+                });
+                const wallMesh = new THREE.Mesh(wallGeo, wallMat);
+                cellGroup.add(wallMesh);
+
+                // 3D Nucleus & Nucleolus (النواة والنوية)
+                const nucGeo = new THREE.SphereGeometry(0.30, 28, 28);
+                const nucMat = new THREE.MeshPhysicalMaterial({ color: 0x0284c7, roughness: 0.2, clearcoat: 0.8 });
+                const nucMesh = new THREE.Mesh(nucGeo, nucMat);
+                nucMesh.position.set(-0.08, 0.36 * ex, 0.08 * ex);
+                cellGroup.add(nucMesh);
+
+                // 3D Chloroplast with stacked Grana thylakoid disks (الكرانا)
+                const granaMat = new THREE.MeshStandardMaterial({ color: 0x16a34a, roughness: 0.25 });
+                for (let s = 0; s < 4; s++) {
+                    const diskGeo = new THREE.CylinderGeometry(0.18, 0.18, 0.05, 24);
+                    const disk = new THREE.Mesh(diskGeo, granaMat);
+                    disk.position.set(-0.10, -0.52 * ex + s * 0.07, 0.16 * ex);
+                    cellGroup.add(disk);
+                }
+                rootGroup.add(cellGroup);
+
+            } else if (modelId === "model_phys_capacitor") {
+                // Parallel Plate Capacitor + Sliding Dielectric Slab + Field Lines
+                const plateGeo = new THREE.BoxGeometry(1.75, 0.10, 1.25);
+                const topPlateMat = new THREE.MeshStandardMaterial({ color: 0xeab308, metalness: 0.75, roughness: 0.2 });
+                const botPlateMat = new THREE.MeshStandardMaterial({ color: 0xca8a04, metalness: 0.75, roughness: 0.2 });
+
+                const topPlate = new THREE.Mesh(plateGeo, topPlateMat);
+                topPlate.position.set(0, 0.65 * ex, 0);
+                rootGroup.add(topPlate);
+
+                const botPlate = new THREE.Mesh(plateGeo, botPlateMat);
+                botPlate.position.set(0, -0.65 * ex, 0);
+                rootGroup.add(botPlate);
+
+                // Dielectric Slab (اللوح العازل الكهربائي k)
+                const dielGeo = new THREE.BoxGeometry(1.55, 0.42, 1.10);
+                const dielMat = new THREE.MeshPhysicalMaterial({
+                    color: 0x38bdf8,
+                    transparent: true,
+                    opacity: 0.68,
+                    roughness: 0.15,
+                    transmission: 0.5
+                });
+                const dielMesh = new THREE.Mesh(dielGeo, dielMat);
+                const slideOffset = (1 - (simIntensity - 1) / 5) * 0.75;
+                dielMesh.position.set(slideOffset, 0, 0);
+                rootGroup.add(dielMesh);
+
+                // Polarized Dipoles inside Dielectric
+                const dipGeo = new THREE.CylinderGeometry(0.03, 0.03, 0.22, 12);
+                const dipMat = new THREE.MeshStandardMaterial({ color: 0xf43f5e });
+                for (let x = -0.5; x <= 0.5; x += 0.5) {
+                    for (let z = -0.3; z <= 0.3; z += 0.3) {
+                        const dip = new THREE.Mesh(dipGeo, dipMat);
+                        dip.position.set(slideOffset + x, 0, z);
+                        rootGroup.add(dip);
+                    }
+                }
+
+                // Electric Field Pillars
+                const fieldGeo = new THREE.CylinderGeometry(0.015, 0.015, 1.25 * ex, 8);
+                const fieldMat = new THREE.MeshBasicMaterial({ color: 0x7dd3fc, transparent: true, opacity: 0.65 });
+                for (let x = -0.65; x <= 0.65; x += 0.42) {
+                    for (let z = -0.4; z <= 0.4; z += 0.4) {
+                        const line = new THREE.Mesh(fieldGeo, fieldMat);
+                        line.position.set(x, 0, z);
+                        rootGroup.add(line);
+                    }
+                }
+
+                // Digital Voltmeter 3D Box
+                const vmGeo = new THREE.BoxGeometry(0.55, 0.25, 0.40);
+                const vmMat = new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 0.3 });
+                const vmMesh = new THREE.Mesh(vmGeo, vmMat);
+                vmMesh.position.set(0.95 * ex, -0.75 * ex, 0.35);
+                rootGroup.add(vmMesh);
+
+            } else if (modelId === "model_chem_daniell") {
+                // Daniell Galvanic Cell: Two Glass Beakers + Zn/Cu Electrodes + U-Salt Bridge
+                const sep = 0.88 * ex;
+
+                // Left Beaker (ZnSO4)
+                const beakerGeo = new THREE.CylinderGeometry(0.52, 0.48, 1.15, 32);
+                const znSolMat = new THREE.MeshPhysicalMaterial({
+                    color: 0x7dd3fc,
+                    transparent: true,
+                    opacity: 0.55,
+                    roughness: 0.1
+                });
+                const leftBeaker = new THREE.Mesh(beakerGeo, znSolMat);
+                leftBeaker.position.set(-sep, -0.25, 0);
+                rootGroup.add(leftBeaker);
+
+                // Zinc Anode Plate (Zn)
+                const elecGeo = new THREE.BoxGeometry(0.24, 1.25, 0.08);
+                const znMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.8, roughness: 0.25 });
+                const znPlate = new THREE.Mesh(elecGeo, znMat);
+                znPlate.position.set(-sep - 0.10, 0.05 * ex, 0);
+                rootGroup.add(znPlate);
+
+                // Right Beaker (CuSO4)
+                const cuSolMat = new THREE.MeshPhysicalMaterial({
+                    color: 0x0284c7,
+                    transparent: true,
+                    opacity: 0.68,
+                    roughness: 0.1
+                });
+                const rightBeaker = new THREE.Mesh(beakerGeo, cuSolMat);
+                rightBeaker.position.set(sep, -0.25, 0);
+                rootGroup.add(rightBeaker);
+
+                // Copper Cathode Plate (Cu)
+                const cuMat = new THREE.MeshStandardMaterial({ color: 0xd97706, metalness: 0.85, roughness: 0.2 });
+                const cuPlate = new THREE.Mesh(elecGeo, cuMat);
+                cuPlate.position.set(sep + 0.10, 0.05 * ex, 0);
+                rootGroup.add(cuPlate);
+
+                // U-Shaped Salt Bridge (الجسر الملحي)
+                const bridgeMat = new THREE.MeshPhysicalMaterial({
+                    color: 0xfde68a,
+                    transparent: true,
+                    opacity: 0.85,
+                    roughness: 0.15
+                });
+                const topBridgeGeo = new THREE.CylinderGeometry(0.11, 0.11, sep * 1.45, 24);
+                topBridgeGeo.rotateZ(Math.PI / 2);
+                const topBridge = new THREE.Mesh(topBridgeGeo, bridgeMat);
+                topBridge.position.set(0, 0.48 * ex, 0.12);
+                rootGroup.add(topBridge);
+
+                const legGeo = new THREE.CylinderGeometry(0.10, 0.10, 0.75, 20);
+                const leftLeg = new THREE.Mesh(legGeo, bridgeMat);
+                leftLeg.position.set(-sep * 0.72, 0.12 * ex, 0.12);
+                rootGroup.add(leftLeg);
+
+                const rightLeg = new THREE.Mesh(legGeo, bridgeMat);
+                rightLeg.position.set(sep * 0.72, 0.12 * ex, 0.12);
+                rootGroup.add(rightLeg);
+
+                // External Wire & Ammeter Box
+                const meterGeo = new THREE.BoxGeometry(0.45, 0.35, 0.18);
+                const meterMat = new THREE.MeshStandardMaterial({ color: 0x1e293b });
+                const meterMesh = new THREE.Mesh(meterGeo, meterMat);
+                meterMesh.position.set(0, 1.05 * ex, 0);
+                rootGroup.add(meterMesh);
+            }
+
+            // Build Animated 3D Particles
+            const pGeo = new THREE.SphereGeometry(0.045, 12, 12);
+            const pMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 });
+            for (let i = 0; i < 18; i++) {
+                const p = new THREE.Mesh(pGeo, pMat);
+                particleGroup.add(p);
+            }
+
+            rebuildHotspotLabels(modelId);
+
+            // If Google <model-viewer> is active, export current Three.js scene to GLB and feed it to <model-viewer>
+            if (currentEngine === "MODEL_VIEWER") {
+                syncSceneToGoogleModelViewer();
+            }
+        }
+
+        function rebuildHotspotLabels(modelId) {
+            labelsOverlay.innerHTML = '';
+            hotspotAnchors = [];
+            const parts = MODEL_PARTS[modelId] || [];
+            parts.forEach(part => {
+                const div = document.createElement('div');
+                div.className = 'hotspot-label' + (part.id === selectedPartId ? ' selected' : '');
+                div.innerHTML = `<span class="hotspot-dot"></span>${part.name}`;
+                div.onclick = (e) => {
+                    e.stopPropagation();
+                    selectPartFromJS(part.id);
+                };
+                labelsOverlay.appendChild(div);
+                hotspotAnchors.push({ id: part.id, name: part.name, basePos: part.pos, el: div });
+            });
+        }
+
+        function selectPartFromJS(partId) {
+            selectedPartId = partId;
+            hotspotAnchors.forEach(h => {
+                if (h.id === partId) h.el.classList.add('selected');
+                else h.el.classList.remove('selected');
+            });
+            if (window.AndroidBridge && window.AndroidBridge.onHotspotSelected) {
+                window.AndroidBridge.onHotspotSelected(partId);
+            }
+        }
+
+        function syncSceneToGoogleModelViewer() {
+            if (!THREE.GLTFExporter || !rootGroup) return;
+            const exporter = new THREE.GLTFExporter();
+            exporter.parse(
+                rootGroup,
+                function (result) {
+                    const blob = new Blob([result], { type: 'model/gltf-binary' });
+                    const url = URL.createObjectURL(blob);
+                    modelViewerEl.src = url;
+
+                    // Populate native <model-viewer> 3D hotspots
+                    modelViewerEl.innerHTML = '';
+                    const parts = MODEL_PARTS[currentModelId] || [];
+                    parts.forEach((p, idx) => {
+                        const btn = document.createElement('button');
+                        btn.slot = `hotspot-${idx}`;
+                        btn.className = 'mv-hotspot';
+                        btn.dataset.position = `${p.pos[0]}m ${p.pos[1]}m ${p.pos[2]}m`;
+                        btn.dataset.normal = `0m 1m 0m`;
+                        btn.textContent = p.name;
+                        btn.onclick = () => selectPartFromJS(p.id);
+                        modelViewerEl.appendChild(btn);
+                    });
+                },
+                { binary: true }
+            );
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if (!renderer || !scene || !camera) return;
+
+            const elapsed = clock.getElapsedTime();
+
+            if (controls) {
+                controls.autoRotate = autoRotateEnabled;
+                controls.update();
+
+                // Calculate 360° spherical angles for HUD readout
+                const azimDeg = Math.round(((controls.getAzimuthalAngle() * 180 / Math.PI) + 360) % 360);
+                const polarDeg = Math.round((controls.getPolarAngle() * 180 / Math.PI));
+                angleReadout.textContent = `🧭 360° Orbit: ${azimDeg}° / ${polarDeg}°`;
+            }
+
+            // Animate scientific particles in 3D space
+            if (particleGroup) {
+                particleGroup.children.forEach((mesh, i) => {
+                    const t = (elapsed * 0.45 * (simIntensity / 2.5) + i / 18) % 1;
+                    if (currentModelId === "model_phys_capacitor") {
+                        const col = (i % 6) - 2.5;
+                        const row = (Math.floor(i / 6) % 3) - 1;
+                        mesh.position.set(col * 0.25, 0.60 - t * 1.20, row * 0.28);
+                    } else if (currentModelId === "model_chem_daniell") {
+                        const x = -0.85 + t * 1.70;
+                        const y = 0.65 + Math.sin(t * Math.PI) * 0.42;
+                        mesh.position.set(x, y, 0.05);
+                    } else {
+                        const ang = t * Math.PI * 4 + i;
+                        mesh.position.set(0.65 + Math.cos(ang) * 0.22, -0.45 + t * 0.90, Math.sin(ang) * 0.22);
+                    }
+                });
+            }
+
+            renderer.render(scene, camera);
+
+            // Project 3D Hotspot anchors to 2D screen coordinates
+            if (currentEngine === "THREE_JS") {
+                const ex = 1 + explodeFactor * 0.55;
+                hotspotAnchors.forEach(h => {
+                    const v = new THREE.Vector3(h.basePos[0] * ex, h.basePos[1] * ex, h.basePos[2] * ex);
+                    v.project(camera);
+                    const x = (v.x * 0.5 + 0.5) * window.innerWidth;
+                    const y = (-(v.y * 0.5) + 0.5) * window.innerHeight;
+                    if (v.z < 1.0) {
+                        h.el.style.display = 'block';
+                        h.el.style.left = `${x}px`;
+                        h.el.style.top = `${y}px`;
+                    } else {
+                        h.el.style.display = 'none';
+                    }
+                });
+            }
+        }
+
+        // Public API callable from Kotlin Jetpack Compose
+        window.Sadis3DBridge = {
+            updateSceneState: function(modelId, engineMode, partId, explode, sim, autoRot) {
+                const modelChanged = (currentModelId !== modelId);
+                const explodeChanged = (Math.abs(explodeFactor - explode) > 0.02);
+                const simChanged = (Math.abs(simIntensity - sim) > 0.05);
+                const engineChanged = (currentEngine !== engineMode);
+
+                currentModelId = modelId;
+                currentEngine = engineMode;
+                selectedPartId = partId;
+                explodeFactor = explode;
+                simIntensity = sim;
+                autoRotateEnabled = autoRot;
+
+                if (engineChanged) {
+                    if (currentEngine === "MODEL_VIEWER") {
+                        modelViewerEl.style.display = 'block';
+                        labelsOverlay.style.display = 'none';
+                        engineBadge.textContent = "Google <model-viewer> 360° GLTF";
+                        syncSceneToGoogleModelViewer();
+                    } else {
+                        modelViewerEl.style.display = 'none';
+                        labelsOverlay.style.display = 'block';
+                        engineBadge.textContent = "Three.js WebGL 360° Engine";
+                    }
+                }
+
+                if (modelChanged || explodeChanged || simChanged) {
+                    build3DModelGeometry(currentModelId);
+                } else {
+                    selectPartFromJS(selectedPartId);
+                }
+            },
+            setCameraAngle: function(azimDeg, polarDeg) {
+                if (!camera || !controls) return;
+                autoRotateEnabled = false;
+                const r = 4.2;
+                const azim = azimDeg * Math.PI / 180;
+                const polar = polarDeg * Math.PI / 180;
+                camera.position.set(
+                    r * Math.sin(polar) * Math.sin(azim),
+                    r * Math.cos(polar),
+                    r * Math.sin(polar) * Math.cos(azim)
+                );
+                controls.update();
+            }
+        };
+
+        window.addEventListener('DOMContentLoaded', initThreeScene);
+    </script>
+</body>
+</html>

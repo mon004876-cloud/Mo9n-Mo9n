@@ -1,0 +1,12 @@
+<resources>
+    <string name="app_name">موسوعة السادس</string>
+    <string name="hero_title">موسوعة السادس الإعدادي التفاعلية</string>
+    <string name="hero_subtitle">الكتاب المدرسي من الغلاف للغلاف نصاً + مختبر رسوم 4K ثلاثية الأبعاد + أجوبة الكنترول الوزارية بطابع مبهج</string>
+    <string name="nav_book">الكتاب التفاعلي</string>
+    <string name="nav_lab_3d">مختبر 4K 3D</string>
+    <string name="nav_plan_100">خطة الـ 100</string>
+    <string name="nav_wizari_bank">بنك الكنترول</string>
+    <string name="active_recall_mode">إخفاء الكلمات للحفظ (الاسترجاع النشط)</string>
+    <string name="show_wizari_answer">عرض الجواب النموذجي من الكنترول</string>
+    <string name="open_4k_interactive">ادخل لرسم الـ 4K التفاعلي وتعلم بيدك</string>
+</resources>
