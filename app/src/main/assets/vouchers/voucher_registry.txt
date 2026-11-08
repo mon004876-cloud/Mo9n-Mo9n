@@ -1,0 +1,3 @@
+# سجل بصمات أكواد التفعيل (SHA-256) — لا يحتوي على الأكواد نفسها.
+# يُحدَّث تلقائياً بواسطة: python3 tools/generate_vouchers.py
+# الصيغة: PLAN_ID|SUBJECT_ID_OR_*|EXPIRY_YYYY-MM-DD|SHA256_HEX
