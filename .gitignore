@@ -16,3 +16,8 @@
 local.properties
 .env
 debug.keystore
+
+# أكواد التفعيل السرية (لا تُرفع أبداً)
+tools/generated_vouchers/
+*.jks
+*.keystore
