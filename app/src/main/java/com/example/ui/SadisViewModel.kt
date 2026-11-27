@@ -3,14 +3,20 @@ package com.example.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.BuildConfig
+import com.example.data.ActivationCodeRecord
+import com.example.data.ActivationCodeRegistry
+import com.example.data.ActivationCodes
 import com.example.data.IraqiCurriculumData
 import com.example.data.LineMasteryEntity
 import com.example.data.ModelQuizScoreEntity
+import com.example.data.PlanIds
 import com.example.data.SadisDatabase
 import com.example.data.SadisRepository
 import com.example.data.StudyPlanTaskEntity
 import com.example.data.SubjectType
 import com.example.data.SubscriptionStatusEntity
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,6 +25,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 enum class MainNavTab {
     TEXTBOOK_READER,
@@ -60,6 +67,11 @@ class SadisViewModel(application: Application) : AndroidViewModel(application) {
     val isPomodoroRunning: StateFlow<Boolean> = _isPomodoroRunning.asStateFlow()
 
     private var timerJob: Job? = null
+    private var lastPomodoroMinutes = 25
+
+    private val _activationResult = MutableStateFlow<ActivationResult?>(null)
+    val activationResult: StateFlow<ActivationResult?> = _activationResult.asStateFlow()
+    private var redeemJob: Job? = null
 
     init {
         val dao = SadisDatabase.getDatabase(application).sadisDao()
@@ -155,23 +167,59 @@ class SadisViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun activateSubscriptionPlan(planId: String) {
-        viewModelScope.launch {
-            repository.activateAnnualSubscription(planId)
+    /** Checks a printed activation code and, if it is genuine, unlocks what it was sold for. */
+    fun redeemActivationCode(rawCode: String) {
+        if (redeemJob?.isActive == true) return
+        redeemJob = viewModelScope.launch {
+            _activationResult.value = ActivationResult.Checking
+            val record = withContext(Dispatchers.Default) {
+                ActivationCodes.redeem(rawCode, ActivationCodeRegistry.records) ?: developerDemoRecord(rawCode)
+            }
+            _activationResult.value = if (record != null && repository.applyPurchase(record.planId, record.subjectId)) {
+                ActivationResult.Activated(record.planId, record.subjectId)
+            } else {
+                ActivationResult.InvalidCode
+            }
         }
     }
 
+    fun clearActivationResult() {
+        if (redeemJob?.isActive != true) {
+            _activationResult.value = null
+        }
+    }
+
+    /** Developer builds only: unlocks every chapter so the paid screens can be tested. */
+    fun developerUnlockAllSubjects() {
+        if (!BuildConfig.DEBUG) return
+        viewModelScope.launch {
+            repository.applyPurchase(PlanIds.ALL_SUBJECTS_ANNUAL, null)
+        }
+    }
+
+    /** Developer builds only: goes back to the free first chapters. */
     fun resetToFreeChapterOneTier() {
+        if (!BuildConfig.DEBUG) return
         viewModelScope.launch {
             repository.resetToFreeTier()
         }
     }
+
+    private fun developerDemoRecord(rawCode: String): ActivationCodeRecord? =
+        if (BuildConfig.DEBUG && rawCode.trim().equals(DEVELOPER_DEMO_CODE, ignoreCase = true)) {
+            ActivationCodeRecord(id = "DEMO", saltHex = "", hashHex = "", planId = PlanIds.ALL_SUBJECTS_ANNUAL)
+        } else {
+            null
+        }
 
     fun togglePomodoroTimer() {
         if (_isPomodoroRunning.value) {
             _isPomodoroRunning.value = false
             timerJob?.cancel()
         } else {
+            if (_pomodoroSecondsLeft.value == 0) {
+                _pomodoroSecondsLeft.value = lastPomodoroMinutes * 60
+            }
             _isPomodoroRunning.value = true
             timerJob = viewModelScope.launch {
                 while (_isPomodoroRunning.value && _pomodoroSecondsLeft.value > 0) {
@@ -188,6 +236,18 @@ class SadisViewModel(application: Application) : AndroidViewModel(application) {
     fun resetPomodoroTimer(minutes: Int = 25) {
         _isPomodoroRunning.value = false
         timerJob?.cancel()
+        lastPomodoroMinutes = minutes
         _pomodoroSecondsLeft.value = minutes * 60
     }
+
+    companion object {
+        /** Accepted only by developer (debug) builds, never by the release app. */
+        const val DEVELOPER_DEMO_CODE = "SADIS100"
+    }
+}
+
+sealed interface ActivationResult {
+    data object Checking : ActivationResult
+    data class Activated(val planId: String, val subjectId: String?) : ActivationResult
+    data object InvalidCode : ActivationResult
 }

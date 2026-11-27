@@ -48,8 +48,10 @@ class ExampleRobolectricTest {
 
         val plans = IraqiCurriculumData.subscriptionPlans
         assertTrue("Must have subscription tiers configured", plans.size >= 3)
-        val recommendedPlan = plans.first { it.isRecommended }
-        assertTrue("Recommended VIP plan should mention 49,000 IQD", recommendedPlan.priceIqd.contains("49,000"))
+        // The old check expected "49,000" on the recommended plan, a price that no longer exists in
+        // the plan list (the paywall still advertised it). Price consistency is now checked in
+        // CurriculumIntegrityTest against the plan list itself.
+        assertTrue("One plan must be marked as recommended", plans.any { it.isRecommended })
     }
 
     @Test

@@ -11,6 +11,7 @@ import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 
 @Entity(tableName = "line_mastery")
 data class LineMasteryEntity(
@@ -40,7 +41,7 @@ data class StudyPlanTaskEntity(
 data class SubscriptionStatusEntity(
     @PrimaryKey val id: Int = 1,
     val isAnnualVipUnlocked: Boolean = false,
-    val activePlanId: String = "FREE_CHAPTER_1",
+    val activePlanId: String = PlanIds.FREE_CHAPTER_1,
     val activatedAt: Long = 0L
 )
 
@@ -143,15 +144,13 @@ class SadisRepository(private val dao: SadisStudyDao) {
         dao.upsertPlanTask(StudyPlanTaskEntity(stepId = stepId, isCompleted = isCompleted))
     }
 
-    suspend fun activateAnnualSubscription(planId: String) {
-        dao.upsertSubscriptionStatus(
-            SubscriptionStatusEntity(
-                id = 1,
-                isAnnualVipUnlocked = true,
-                activePlanId = planId,
-                activatedAt = System.currentTimeMillis()
-            )
-        )
+    /** Stores what a redeemed code unlocks. Returns false for a plan the app does not sell. */
+    suspend fun applyPurchase(planId: String, subjectId: String?): Boolean {
+        val current = dao.getSubscriptionStatus().first()
+        val updated = Entitlements.applyPurchase(current, planId, subjectId, System.currentTimeMillis())
+            ?: return false
+        dao.upsertSubscriptionStatus(updated)
+        return true
     }
 
     suspend fun resetToFreeTier() {
@@ -159,7 +158,7 @@ class SadisRepository(private val dao: SadisStudyDao) {
             SubscriptionStatusEntity(
                 id = 1,
                 isAnnualVipUnlocked = false,
-                activePlanId = "FREE_CHAPTER_1",
+                activePlanId = PlanIds.FREE_CHAPTER_1,
                 activatedAt = 0L
             )
         )

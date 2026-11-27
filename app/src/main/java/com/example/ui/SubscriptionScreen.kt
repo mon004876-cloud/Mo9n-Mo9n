@@ -9,16 +9,16 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Redeem
 import androidx.compose.material.icons.filled.Shield
@@ -39,40 +39,56 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
+import com.example.data.Entitlements
 import com.example.data.IraqiCurriculumData
+import com.example.data.PlanIds
 import com.example.data.SubjectType
 import com.example.data.SubscriptionPlanTier
 import com.example.data.SubscriptionStatusEntity
-import com.example.ui.theme.CoralLightContainer
 import com.example.ui.theme.CoralSecondary
 import com.example.ui.theme.GoldLightContainer
 import com.example.ui.theme.GoldTertiary
-import com.example.ui.theme.OnCoralLightContainer
 import com.example.ui.theme.OnGoldLightContainer
 import com.example.ui.theme.OnTealLightContainer
 import com.example.ui.theme.SoftMintSurface
 import com.example.ui.theme.TealLightContainer
 import com.example.ui.theme.TealPrimary
+import kotlinx.coroutines.launch
 
 @Composable
 fun SubscriptionScreen(
     subscriptionStatus: SubscriptionStatusEntity?,
-    onActivatePlan: (String) -> Unit,
+    activationResult: ActivationResult?,
+    onRedeemCode: (String) -> Unit,
+    onCodeInputChanged: () -> Unit,
+    showDeveloperTools: Boolean,
     onResetToFree: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val isVipUnlocked = subscriptionStatus?.isAnnualVipUnlocked == true
+    val hasAllSubjects = Entitlements.hasAllSubjects(subscriptionStatus)
+    val singleSubjects = remember(subscriptionStatus) {
+        val ids = Entitlements.unlockedSubjectIds(subscriptionStatus)
+        SubjectType.entries.filter { it.id in ids }
+    }
+    val hasPaidAccess = hasAllSubjects || singleSubjects.isNotEmpty()
     var voucherCode by remember { mutableStateOf("") }
-    var voucherFeedback by remember { mutableStateOf<String?>(null) }
+    val plans = IraqiCurriculumData.subscriptionPlans
+    val listState = rememberLazyListState()
+    val coroutineScope = rememberCoroutineScope()
+    // The activation-code card comes after the status banner, the plan cards and the price table.
+    val activationCardIndex = 1 + plans.size + 1
 
     LazyColumn(
+        state = listState,
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background),
@@ -84,11 +100,11 @@ fun SubscriptionScreen(
             Card(
                 shape = RoundedCornerShape(22.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = if (isVipUnlocked) GoldLightContainer else SoftMintSurface
+                    containerColor = if (hasPaidAccess) GoldLightContainer else SoftMintSurface
                 ),
                 border = BorderStroke(
                     2.dp,
-                    if (isVipUnlocked) GoldTertiary else TealPrimary
+                    if (hasPaidAccess) GoldTertiary else TealPrimary
                 ),
                 elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
                 modifier = Modifier.fillMaxWidth()
@@ -100,51 +116,45 @@ fun SubscriptionScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Icon(
-                                imageVector = if (isVipUnlocked) Icons.Default.Verified else Icons.Default.LockOpen,
-                                contentDescription = null,
-                                tint = if (isVipUnlocked) GoldTertiary else TealPrimary,
-                                modifier = Modifier.size(30.dp)
+                        Icon(
+                            imageVector = if (hasPaidAccess) Icons.Default.Verified else Icons.Default.LockOpen,
+                            contentDescription = null,
+                            tint = if (hasPaidAccess) GoldTertiary else TealPrimary,
+                            modifier = Modifier.size(30.dp)
+                        )
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = when {
+                                    hasAllSubjects -> "الاشتراك السنوي الشامل مفعّل (جميع الفصول مفتوحة)"
+                                    hasPaidAccess -> "اشتراكك مفعّل لـ: " + singleSubjects.joinToString("، ") { it.titleAr }
+                                    else -> "الباقة الحالية: الفصل الأول مجاني بالكامل لكل مادة"
+                                },
+                                style = MaterialTheme.typography.titleLarge,
+                                color = if (hasPaidAccess) OnGoldLightContainer else OnTealLightContainer
                             )
-                            Column {
-                                Text(
-                                    text = if (isVipUnlocked) {
-                                        "الاشتراك السنوي الشامل مفعّل (جميع الفصول مفتوحة)"
-                                    } else {
-                                        "الباقة الحالية: الفصل الأول مجاني بالكامل لكل مادة"
-                                    },
-                                    style = MaterialTheme.typography.titleLarge,
-                                    color = if (isVipUnlocked) OnGoldLightContainer else OnTealLightContainer
-                                )
-                                Text(
-                                    text = if (isVipUnlocked) {
-                                        "جميع فصول المواد الـ 7 ومجسمات 360° 4K وبنك الكنترول مفتوحة أمامك بالكامل."
-                                    } else {
-                                        "جرّب الفصل الأول مجاناً في جميع المواد الـ 7، واشترك سنوياً لفتح باقي الفصول حتى نهاية الامتحانات الوزارية."
-                                    },
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
+                            Text(
+                                text = when {
+                                    hasAllSubjects -> "جميع فصول المواد الـ 7 ومجسمات 360° 4K وبنك الكنترول مفتوحة أمامك بالكامل."
+                                    hasPaidAccess -> "باقي المواد: الفصل الأول مجاني، ويمكنك إضافة أي مادة أخرى بكود تفعيل جديد."
+                                    else -> "جرّب الفصل الأول مجاناً في جميع المواد الـ 7، واشترك سنوياً لفتح باقي الفصول حتى نهاية الامتحانات الوزارية."
+                                },
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
 
-                    if (isVipUnlocked) {
+                    if (hasPaidAccess && showDeveloperTools) {
                         OutlinedButton(
                             onClick = onResetToFree,
                             border = BorderStroke(1.dp, OnGoldLightContainer),
                             modifier = Modifier.testTag("reset_free_tier_btn")
                         ) {
-                            Text("العودة لوضع (الفصل الأول المجاني فقط) للتجربة", color = OnGoldLightContainer)
+                            Text("نسخة المطوّر: العودة إلى الفصل الأول المجاني للتجربة", color = OnGoldLightContainer)
                         }
                     }
                 }
@@ -152,17 +162,16 @@ fun SubscriptionScreen(
         }
 
         // Pricing Tiers Cards
-        items(IraqiCurriculumData.subscriptionPlans, key = { it.planId }) { plan ->
+        items(plans, key = { it.planId }) { plan ->
             SubscriptionPlanCard(
                 plan = plan,
-                isCurrentlyActive = (isVipUnlocked && subscriptionStatus?.activePlanId == plan.planId) ||
-                    (!isVipUnlocked && plan.planId == "FREE_CHAPTER_1"),
+                isCurrentlyActive = when (plan.planId) {
+                    PlanIds.ALL_SUBJECTS_ANNUAL -> hasAllSubjects
+                    PlanIds.SINGLE_SUBJECT_ANNUAL -> !hasAllSubjects && singleSubjects.isNotEmpty()
+                    else -> !hasPaidAccess
+                },
                 onSelectPlan = {
-                    if (plan.planId == "FREE_CHAPTER_1") {
-                        onResetToFree()
-                    } else {
-                        onActivatePlan(plan.planId)
-                    }
+                    coroutineScope.launch { listState.animateScrollToItem(activationCardIndex) }
                 }
             )
         }
@@ -231,7 +240,7 @@ fun SubscriptionScreen(
             }
         }
 
-        // Iraqi Student Payment Methods & Library Activation Code Card
+        // Activation code card: library cards, or a code received after paying by ZainCash / Qi Card
         item {
             Card(
                 shape = RoundedCornerShape(18.dp),
@@ -255,54 +264,75 @@ fun SubscriptionScreen(
                             tint = TealPrimary
                         )
                         Text(
-                            text = "التفعيل الفوري عبر كود المكتبات أو زين كاش (ZainCash):",
+                            text = "التفعيل بكود البطاقة (المكتبات أو زين كاش):",
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                     }
 
                     Text(
-                        text = "يدعم التطبيق الدفع المباشر عبر محفظة زين كاش (ZainCash)، بطاقة كي كارد / ماستركارد الرافدين، أو إدخال كود البطاقة المشتراة من المكتبات المعتمدة في بغداد والمحافظات (جرّب كتابة SADIS100 للتفعيل الفوري):",
+                        text = "اشترِ بطاقة التفعيل من المكتبات المعتمدة في بغداد والمحافظات، أو ادفع عبر زين كاش (ZainCash) أو كي كارد واستلم كودك، ثم اكتبه هنا كما هو مطبوع على البطاقة:",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
+                    if (showDeveloperTools) {
+                        Text(
+                            text = "نسخة المطوّر فقط: الكود التجريبي ${SadisViewModel.DEVELOPER_DEMO_CODE} يفتح كل الفصول للتجربة، ولا يعمل في نسخة المتجر.",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = GoldTertiary
+                        )
+                    }
+
                     OutlinedTextField(
                         value = voucherCode,
-                        onValueChange = { voucherCode = it },
-                        placeholder = { Text("أدخل كود التفعيل السنوي (مثال: SADIS100)") },
+                        onValueChange = {
+                            voucherCode = it
+                            onCodeInputChanged()
+                        },
+                        placeholder = { Text("مثال: XXXX-XXXX-XXXX-XXXX") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier
                             .fillMaxWidth()
                             .testTag("voucher_code_input")
                     )
 
-                    if (voucherFeedback != null) {
+                    val feedback = when (activationResult) {
+                        null -> null
+                        ActivationResult.Checking -> "جارٍ التحقق من الكود..."
+                        ActivationResult.InvalidCode ->
+                            "✗ الكود غير صحيح. تأكد من كتابته كما هو على البطاقة (16 حرفاً ورقماً)."
+                        is ActivationResult.Activated ->
+                            if (activationResult.planId == PlanIds.ALL_SUBJECTS_ANNUAL) {
+                                "✓ تم التفعيل! جميع فصول المواد الـ 7 مفتوحة الآن."
+                            } else {
+                                val subjectTitle = SubjectType.entries
+                                    .firstOrNull { it.id == activationResult.subjectId }?.titleAr.orEmpty()
+                                "✓ تم التفعيل! جميع فصول مادة $subjectTitle مفتوحة الآن."
+                            }
+                    }
+                    if (feedback != null) {
                         Text(
-                            text = voucherFeedback!!,
+                            text = feedback,
                             style = MaterialTheme.typography.labelLarge,
-                            color = TealPrimary
+                            color = if (activationResult == ActivationResult.InvalidCode) CoralSecondary else TealPrimary,
+                            modifier = Modifier.testTag("voucher_feedback")
                         )
                     }
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    Button(
+                        onClick = { onRedeemCode(voucherCode) },
+                        enabled = voucherCode.isNotBlank() && activationResult != ActivationResult.Checking,
+                        colors = ButtonDefaults.buttonColors(containerColor = TealPrimary),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("activate_voucher_btn")
                     ) {
-                        Button(
-                            onClick = {
-                                onActivatePlan("ALL_7_SUBJECTS_VIP_ANNUAL")
-                                voucherFeedback = "✓ تم تفعيل الباقة السنوية الشاملة بنجاح! جميع فصول المواد الـ 7 مفتوحة الآن."
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = TealPrimary),
-                            modifier = Modifier
-                                .weight(1f)
-                                .testTag("activate_voucher_btn")
-                        ) {
-                            Icon(Icons.Default.CreditCard, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("تفعيل جميع الفصول الآن")
-                        }
+                        Icon(Icons.Default.LockOpen, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("تفعيل الكود")
                     }
                 }
             }
@@ -316,6 +346,10 @@ private fun SubscriptionPlanCard(
     isCurrentlyActive: Boolean,
     onSelectPlan: () -> Unit
 ) {
+    val isFreePlan = plan.planId == PlanIds.FREE_CHAPTER_1
+    // A student who bought one book can still add another book with a new code.
+    val canAddAnotherSubject = plan.planId == PlanIds.SINGLE_SUBJECT_ANNUAL && isCurrentlyActive
+
     Card(
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
@@ -403,12 +437,11 @@ private fun SubscriptionPlanCard(
 
             Button(
                 onClick = onSelectPlan,
+                enabled = !isFreePlan && (!isCurrentlyActive || canAddAnotherSubject),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = when {
-                        isCurrentlyActive -> TealPrimary
-                        plan.isRecommended -> GoldTertiary
-                        else -> TealPrimary
-                    }
+                    containerColor = if (plan.isRecommended && !isCurrentlyActive) GoldTertiary else TealPrimary,
+                    disabledContainerColor = TealLightContainer,
+                    disabledContentColor = OnTealLightContainer
                 ),
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier
@@ -416,12 +449,12 @@ private fun SubscriptionPlanCard(
                     .testTag("select_plan_btn_${plan.planId}")
             ) {
                 Text(
-                    text = if (isCurrentlyActive) {
-                        "✓ هذه الباقة مفعّلة حالياً"
-                    } else if (plan.planId == "FREE_CHAPTER_1") {
-                        "تفعيل الباقة التجريبية المجانية"
-                    } else {
-                        "اشترك الآن وافتح جميع الفصول (${plan.priceIqd})"
+                    text = when {
+                        isFreePlan && isCurrentlyActive -> "✓ هذه الباقة مفعّلة حالياً"
+                        isFreePlan -> "الفصل الأول يبقى مجانياً لجميع الطلبة"
+                        canAddAnotherSubject -> "✓ مفعّلة • أضف مادة أخرى بكود جديد"
+                        isCurrentlyActive -> "✓ هذه الباقة مفعّلة حالياً"
+                        else -> "اشترك بكود التفعيل (${plan.priceIqd})"
                     },
                     fontWeight = FontWeight.Bold
                 )

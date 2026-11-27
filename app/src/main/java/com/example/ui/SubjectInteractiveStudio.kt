@@ -442,7 +442,7 @@ private fun PhysicsLiveCapacitorSimulator(
         ) {
             Text(
                 text = if (isBatteryDisconnected) {
-                    "الاستنتاج الوزاري (مفصولة): السعة تزداد (Ck = kC)، وفرق الجهد يقل (ΔVk = ΔV/k)، والمجال الكهربائي يقل بنسبة (${"%.0f".format(currentE)}%)."
+                    "الاستنتاج الوزاري (مفصولة): السعة تزداد (Ck = kC)، وفرق الجهد يقل (ΔVk = ΔV/k)، والمجال الكهربائي يقل (Ek = E/k) فيصبح ${"%.0f".format(currentE)}% من قيمته قبل إدخال العازل."
                 } else {
                     "الاستنتاج الوزاري (متصلة): السعة تزداد (Ck = kC)، وفرق الجهد يبقى ثابتاً (ΔVk = ΔV)، والشحنة المختزنة تزداد (Qk = kQ)."
                 },
@@ -463,9 +463,10 @@ private fun ChemistryLiveThermodynamicsSimulator(
     var isExothermic by remember { mutableStateOf(true) }
     var tempKelvin by remember { mutableFloatStateOf(298f) }
 
-    val deltaH = if (isExothermic) -92f else +68f
-    val deltaS = 0.18f // kJ/K.mol
-    val deltaG = deltaH - (tempKelvin * deltaS / 3f)
+    val deltaH = if (isExothermic) -92f else +68f // kJ/mol
+    val deltaS = 0.18f // kJ/(K·mol)
+    // Gibbs: ΔG = ΔH − TΔS, exactly the relation printed on screen.
+    val deltaG = deltaH - tempKelvin * deltaS
     val isSpontaneous = deltaG < 0f
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -496,6 +497,11 @@ private fun ChemistryLiveThermodynamicsSimulator(
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "ΔH = ${"%+.0f".format(deltaH)} kJ/mol • ΔS = +${"%.2f".format(deltaS)} kJ/(K·mol) • T = ${tempKelvin.toInt()} K",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
                     text = if (isSpontaneous) {
@@ -857,29 +863,32 @@ fun InteractiveLineParticipationChallenge(
 ) {
     var isExpanded by remember { mutableStateOf(false) }
 
-    // Build interactive blocks from keyTermsToCloze or split the first Control answer into logical segments
-    val targetBlocks = remember(line.id) {
-        if (line.keyTermsToCloze.size >= 2) {
-            line.keyTermsToCloze
-        } else {
-            val rawAns = line.wizariAttachments.firstOrNull()?.controlModelAnswer ?: line.verbatimText
-            rawAns.split("،", "؛", ".").map { it.trim() }.filter { it.length > 4 }.take(4)
-        }
-    }
+    // Key blocks in the order they appear in the textbook sentence; the student must rebuild that order.
+    val targetBlocks = remember(line.id) { lineChallengeBlocks(line) }
 
     val shuffledBlocks = remember(line.id) {
         targetBlocks.shuffled()
     }
     val selectedBlocks = remember(line.id) { mutableStateListOf<String>() }
-    val isCompleted = selectedBlocks.size == targetBlocks.size && targetBlocks.isNotEmpty()
+    val challengeState = lineChallengeState(selectedBlocks.toList(), targetBlocks)
+    val isCompleted = challengeState == LineChallengeState.SOLVED
+    val isWrongOrder = challengeState == LineChallengeState.WRONG_ORDER
 
     Column(modifier = modifier.fillMaxWidth()) {
         Surface(
-            color = if (isCompleted) SoftMintSurface else GoldLightContainer.copy(alpha = 0.7f),
+            color = when {
+                isCompleted -> SoftMintSurface
+                isWrongOrder -> CoralLightContainer
+                else -> GoldLightContainer.copy(alpha = 0.7f)
+            },
             shape = RoundedCornerShape(12.dp),
             border = BorderStroke(
                 1.dp,
-                if (isCompleted) subject.accentColor else GoldTertiary
+                when {
+                    isCompleted -> subject.accentColor
+                    isWrongOrder -> CoralSecondary
+                    else -> GoldTertiary
+                }
             ),
             modifier = Modifier
                 .fillMaxWidth()
@@ -904,14 +913,18 @@ fun InteractiveLineParticipationChallenge(
                         modifier = Modifier.size(18.dp)
                     )
                     Text(
-                        text = if (isCompleted) {
-                            "أحسنت! ركّبت مفاتيح هذا السطر بيدك (+25 XP)"
-                        } else {
-                            "شارك بيدك: ركّب مفاتيح الجواب الوزاري لهذا السطر (${targetBlocks.size} خطوات)"
+                        text = when {
+                            isCompleted -> "أحسنت! ركّبت مفاتيح هذا السطر بالترتيب الصحيح"
+                            isWrongOrder -> "الترتيب غير صحيح، رتّبها كما وردت في نص الكتاب"
+                            else -> "شارك بيدك: ركّب مفاتيح الجواب الوزاري لهذا السطر (${targetBlocks.size} خطوات)"
                         },
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Bold,
-                        color = if (isCompleted) subject.accentColor else OnGoldLightContainer
+                        color = when {
+                            isCompleted -> subject.accentColor
+                            isWrongOrder -> OnCoralLightContainer
+                            else -> OnGoldLightContainer
+                        }
                     )
                 }
 
@@ -1013,6 +1026,20 @@ fun InteractiveLineParticipationChallenge(
                                         color = subject.accentColor,
                                         fontWeight = FontWeight.Bold
                                     )
+                                }
+                                if (isWrongOrder) {
+                                    OutlinedButton(
+                                        onClick = { selectedBlocks.clear() },
+                                        modifier = Modifier.testTag("retry_line_challenge_${line.id}")
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Refresh,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("إعادة المحاولة")
+                                    }
                                 }
                             }
                         }

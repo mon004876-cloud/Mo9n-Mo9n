@@ -607,7 +607,7 @@ object IraqiCurriculumData {
 
     val subscriptionPlans: List<SubscriptionPlanTier> = listOf(
         SubscriptionPlanTier(
-            planId = "FREE_CHAPTER_1",
+            planId = PlanIds.FREE_CHAPTER_1,
             titleAr = "الباقة التجريبية المجانية (الفصل الأول لكل مادة)",
             priceIqd = "مجاناً (0 د.ع)",
             badgeText = "مفعّلة تلقائياً لجميع الطلبة",
@@ -619,7 +619,7 @@ object IraqiCurriculumData {
             isRecommended = false
         ),
         SubscriptionPlanTier(
-            planId = "SINGLE_SUBJECT_ANNUAL",
+            planId = PlanIds.SINGLE_SUBJECT_ANNUAL,
             titleAr = "اشتراك الكتاب الواحد السنوي (من الغلاف للغلاف)",
             priceIqd = "30,000 د.ع / للكتاب الواحد سنوياً",
             badgeText = "التسعيرة الرسمية للكتاب الكامل • أول فصل مجاني",
@@ -632,7 +632,7 @@ object IraqiCurriculumData {
             isRecommended = true
         ),
         SubscriptionPlanTier(
-            planId = "ALL_7_SUBJECTS_VIP_ANNUAL",
+            planId = PlanIds.ALL_SUBJECTS_ANNUAL,
             titleAr = "الباقة الشاملة لجميع الكتب الـ 7 (خصم المجموعة الكاملة)",
             priceIqd = "150,000 د.ع / سنوياً (بدلاً من 210,000 د.ع)",
             badgeText = "جميع الكتب الـ 7 • توفير 60,000 د.ع",

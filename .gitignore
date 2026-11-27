@@ -16,3 +16,6 @@
 local.properties
 .env
 debug.keystore
+
+# Activation codes made by tools/generate_activation_codes.py: private, never commit
+activation-codes-*.csv

@@ -51,6 +51,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.data.Entitlements
 import com.example.ui.Interactive4KLabScreen
 import com.example.ui.MainNavTab
 import com.example.ui.SadisViewModel
@@ -93,11 +94,13 @@ fun SadisEncyclopediaApp(
     val modelScoresList by sadisViewModel.modelScoresList.collectAsStateWithLifecycle()
     val planTasksList by sadisViewModel.planTasksList.collectAsStateWithLifecycle()
     val subscriptionStatus by sadisViewModel.subscriptionStatus.collectAsStateWithLifecycle()
+    val activationResult by sadisViewModel.activationResult.collectAsStateWithLifecycle()
 
     val pomodoroSeconds by sadisViewModel.pomodoroSecondsLeft.collectAsStateWithLifecycle()
     val isPomodoroRunning by sadisViewModel.isPomodoroRunning.collectAsStateWithLifecycle()
 
-    val isAnnualVipUnlocked = subscriptionStatus?.isAnnualVipUnlocked == true
+    val isAnnualVipUnlocked = Entitlements.hasAllSubjects(subscriptionStatus)
+    val unlockedSubjectIds = Entitlements.unlockedSubjectIds(subscriptionStatus)
 
     if (currentTab != MainNavTab.TEXTBOOK_READER) {
         BackHandler {
@@ -156,7 +159,11 @@ fun SadisEncyclopediaApp(
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = if (isAnnualVipUnlocked) "VIP سنوي • متقن $masteredCount" else "فصل 1 مجاني • متقن $masteredCount",
+                                text = when {
+                                    isAnnualVipUnlocked -> "VIP سنوي • متقن $masteredCount"
+                                    unlockedSubjectIds.isNotEmpty() -> "مشترك (${unlockedSubjectIds.size}) • متقن $masteredCount"
+                                    else -> "فصل 1 مجاني • متقن $masteredCount"
+                                },
                                 style = MaterialTheme.typography.labelLarge,
                                 color = if (isAnnualVipUnlocked) OnGoldLightContainer else OnTealLightContainer
                             )
@@ -316,8 +323,10 @@ fun SadisEncyclopediaApp(
                     selectedSubject = selectedSubject,
                     onSelectSubject = sadisViewModel::selectSubject,
                     isAnnualVipUnlocked = isAnnualVipUnlocked,
+                    unlockedSubjectIds = unlockedSubjectIds,
                     onOpenSubscriptionScreen = { sadisViewModel.selectTab(MainNavTab.ANNUAL_SUBSCRIPTION) },
-                    onQuickUnlockAnnualVip = { sadisViewModel.activateSubscriptionPlan("ALL_7_SUBJECTS_VIP_ANNUAL") },
+                    showDeveloperUnlock = BuildConfig.DEBUG,
+                    onDeveloperUnlock = sadisViewModel::developerUnlockAllSubjects,
                     activeRecallEnabled = activeRecallEnabled,
                     onToggleActiveRecall = sadisViewModel::toggleActiveRecallMode,
                     revealedClozeKeys = revealedClozeKeys,
@@ -365,7 +374,10 @@ fun SadisEncyclopediaApp(
             MainNavTab.ANNUAL_SUBSCRIPTION -> {
                 SubscriptionScreen(
                     subscriptionStatus = subscriptionStatus,
-                    onActivatePlan = sadisViewModel::activateSubscriptionPlan,
+                    activationResult = activationResult,
+                    onRedeemCode = sadisViewModel::redeemActivationCode,
+                    onCodeInputChanged = sadisViewModel::clearActivationResult,
+                    showDeveloperTools = BuildConfig.DEBUG,
                     onResetToFree = sadisViewModel::resetToFreeChapterOneTier,
                     modifier = Modifier.padding(innerPadding)
                 )

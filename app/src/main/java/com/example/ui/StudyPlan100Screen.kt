@@ -92,7 +92,7 @@ fun StudyPlan100Screen(
         val lineRatio = if (totalLinesInCurriculum > 0) masteredLinesCount.toFloat() / totalLinesInCurriculum else 0f
         val stepRatio = if (totalPlanSteps > 0) completedStepsCount.toFloat() / totalPlanSteps else 0f
         val labRatio = (modelScoresList.size.toFloat() / IraqiCurriculumData.interactive4KModels.size).coerceAtMost(1f)
-        ((lineRatio * 0.5f + stepRatio * 0.3f + labRatio * 0.2f) * 100).toInt().coerceIn(5, 100)
+        ((lineRatio * 0.5f + stepRatio * 0.3f + labRatio * 0.2f) * 100).toInt().coerceIn(0, 100)
     }
 
     LazyColumn(

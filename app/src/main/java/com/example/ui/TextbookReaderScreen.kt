@@ -89,6 +89,7 @@ import androidx.compose.ui.util.lerp
 import com.example.R
 import com.example.data.IraqiCurriculumData
 import com.example.data.LineMasteryEntity
+import com.example.data.PlanIds
 import com.example.data.SubjectType
 import com.example.data.TextbookFigure
 import com.example.data.TextbookLine
@@ -150,8 +151,10 @@ fun TextbookReaderScreen(
     selectedSubject: SubjectType,
     onSelectSubject: (SubjectType) -> Unit,
     isAnnualVipUnlocked: Boolean,
+    unlockedSubjectIds: Set<String>,
     onOpenSubscriptionScreen: () -> Unit,
-    onQuickUnlockAnnualVip: () -> Unit,
+    showDeveloperUnlock: Boolean,
+    onDeveloperUnlock: () -> Unit,
     activeRecallEnabled: Boolean,
     onToggleActiveRecall: () -> Unit,
     revealedClozeKeys: Set<String>,
@@ -267,7 +270,8 @@ fun TextbookReaderScreen(
                         }
 
                         val currentBookPage = subjectPages.getOrNull(pagerState.currentPage)
-                        val isPageFree = currentBookPage?.isFreeChapter == true || isAnnualVipUnlocked
+                        val isPageFree = currentBookPage?.isFreeChapter == true ||
+                            isAnnualVipUnlocked || selectedSubject.id in unlockedSubjectIds
                         Surface(
                             color = if (isPageFree) selectedSubject.softBgColor else GoldLightContainer,
                             shape = RoundedCornerShape(12.dp),
@@ -402,9 +406,10 @@ fun TextbookReaderScreen(
                 TextbookPaperPageCard(
                     page = pageData,
                     readingComfortMode = readingComfortMode,
-                    isAnnualVipUnlocked = isAnnualVipUnlocked,
+                    isSubjectUnlocked = isAnnualVipUnlocked || pageData.subject.id in unlockedSubjectIds,
                     onOpenSubscriptionScreen = onOpenSubscriptionScreen,
-                    onQuickUnlockAnnualVip = onQuickUnlockAnnualVip,
+                    showDeveloperUnlock = showDeveloperUnlock,
+                    onDeveloperUnlock = onDeveloperUnlock,
                     activeRecallEnabled = activeRecallEnabled,
                     revealedClozeKeys = revealedClozeKeys,
                     onRevealClozeWord = onRevealClozeWord,
@@ -431,9 +436,10 @@ fun TextbookReaderScreen(
 private fun TextbookPaperPageCard(
     page: TextbookPage,
     readingComfortMode: ReadingComfortMode,
-    isAnnualVipUnlocked: Boolean,
+    isSubjectUnlocked: Boolean,
     onOpenSubscriptionScreen: () -> Unit,
-    onQuickUnlockAnnualVip: () -> Unit,
+    showDeveloperUnlock: Boolean,
+    onDeveloperUnlock: () -> Unit,
     activeRecallEnabled: Boolean,
     revealedClozeKeys: Set<String>,
     onRevealClozeWord: (String) -> Unit,
@@ -445,7 +451,7 @@ private fun TextbookPaperPageCard(
     onOpen3DModel: (String) -> Unit,
     onFlipNext: () -> Unit
 ) {
-    val isLockedPage = !page.isFreeChapter && !isAnnualVipUnlocked
+    val isLockedPage = !page.isFreeChapter && !isSubjectUnlocked
 
     Card(
         modifier = Modifier.fillMaxSize(),
@@ -588,7 +594,8 @@ private fun TextbookPaperPageCard(
                         chapterTitle = page.chapterTitle,
                         previewLine = page.lines.firstOrNull()?.verbatimText ?: "",
                         onOpenSubscriptionPlans = onOpenSubscriptionScreen,
-                        onQuickUnlock = onQuickUnlockAnnualVip
+                        showDeveloperUnlock = showDeveloperUnlock,
+                        onDeveloperUnlock = onDeveloperUnlock
                     )
                 }
             } else {
@@ -640,7 +647,7 @@ private fun TextbookPaperPageCard(
                             val defaultModel = when (page.subject) {
                                 SubjectType.BIOLOGY -> "model_bio_mitochondria"
                                 SubjectType.PHYSICS -> "model_phys_capacitor"
-                                SubjectType.CHEMISTRY -> "model_chem_daniell_cell"
+                                SubjectType.CHEMISTRY -> "model_chem_daniell"
                                 else -> "model_bio_mitochondria"
                             }
                             onOpen3DModel(page.bookFigure?.linked3DModelId ?: defaultModel)
@@ -771,8 +778,12 @@ private fun AnnualSubscriptionPaywallCard(
     chapterTitle: String,
     previewLine: String,
     onOpenSubscriptionPlans: () -> Unit,
-    onQuickUnlock: () -> Unit
+    showDeveloperUnlock: Boolean,
+    onDeveloperUnlock: () -> Unit
 ) {
+    // Prices come from the plan list so this card can never disagree with the subscription screen.
+    val allSubjectsPlan = IraqiCurriculumData.subscriptionPlans.firstOrNull { it.planId == PlanIds.ALL_SUBJECTS_ANNUAL }
+
     Card(
         shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFFFFFBEB)),
@@ -877,39 +888,40 @@ private fun AnnualSubscriptionPaywallCard(
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
-                    Text(
-                        text = "• الباقة الذهبية الشاملة لجميع المواد الـ 7 لسنة كاملة: 49,000 د.ع فقط (أقل من سعر ملزمة ورقية لكل مادة!)",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = TealPrimary
-                    )
+                    if (allSubjectsPlan != null) {
+                        Text(
+                            text = "• الباقة الشاملة لجميع المواد الـ 7 لسنة كاملة: ${allSubjectsPlan.priceIqd}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = TealPrimary
+                        )
+                    }
                 }
             }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            Button(
+                onClick = onOpenSubscriptionPlans,
+                colors = ButtonDefaults.buttonColors(containerColor = TealPrimary),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("view_pricing_details_btn")
             ) {
-                Button(
-                    onClick = onQuickUnlock,
-                    colors = ButtonDefaults.buttonColors(containerColor = TealPrimary),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier
-                        .weight(1f)
-                        .testTag("quick_unlock_vip_btn")
-                ) {
-                    Icon(Icons.Default.LockOpen, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("تفعيل الاشتراك السنوي فوراً")
-                }
+                Icon(Icons.Default.LockOpen, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("اشترك أو أدخل كود التفعيل")
+            }
 
+            if (showDeveloperUnlock) {
                 OutlinedButton(
-                    onClick = onOpenSubscriptionPlans,
+                    onClick = onDeveloperUnlock,
                     border = BorderStroke(1.5.dp, GoldTertiary),
                     shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.testTag("view_pricing_details_btn")
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("quick_unlock_vip_btn")
                 ) {
-                    Text("تفاصيل الباقات", color = OnGoldLightContainer)
+                    Text("نسخة المطوّر فقط: فتح كل الفصول للتجربة", color = OnGoldLightContainer)
                 }
             }
         }
@@ -1011,7 +1023,8 @@ private fun VerbatimTextbookLineItem(
     onSaveNote: (String) -> Unit,
     onOpen3DModel: (String) -> Unit
 ) {
-    var showWizariPanel by remember { mutableStateOf(true) }
+    // In active-recall mode the model answers start folded, otherwise they would give the hidden terms away.
+    var showWizariPanel by remember(activeRecallEnabled) { mutableStateOf(!activeRecallEnabled) }
     var showNoteEditor by remember { mutableStateOf(false) }
     var noteDraft by remember(masteryEntity?.studentNote) {
         mutableStateOf(masteryEntity?.studentNote ?: "")
