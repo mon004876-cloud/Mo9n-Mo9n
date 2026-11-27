@@ -47,7 +47,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -119,22 +118,25 @@ fun Interactive4KLabScreen(
     var explodeLayersFactor by remember(activeModel) { mutableFloatStateOf(0.25f) }
     var simulationIntensity by remember(activeModel) { mutableFloatStateOf(2.5f) }
 
-    // Continuous 360° Auto-Turntable & Live Particle Animation Loop for Hybrid mode
+    // Frame loop for the built-in canvas engine only; the WebView engines animate themselves, so
+    // running it for them would just recompose the screen 33 times a second for nothing.
     var animPhase by remember { mutableFloatStateOf(0f) }
-    LaunchedEffect(autoOrbit360) {
+    LaunchedEffect(autoOrbit360, web3DEngineType) {
+        if (web3DEngineType != Web3DEngineType.HYBRID_CANVAS_3D) return@LaunchedEffect
         while (true) {
             delay(30L)
             animPhase = (animPhase + 0.035f) % 1f
-            if (autoOrbit360 && web3DEngineType == Web3DEngineType.HYBRID_CANVAS_3D) {
+            if (autoOrbit360) {
                 yawAngleDeg = normalizeAngle360(yawAngleDeg + 1.8f)
             }
         }
     }
+    var engineFallbackNotice by remember { mutableStateOf<String?>(null) }
 
     // Active Pin-Drop Challenge Quiz State
-    var quizTargetIndex by remember(activeModel) { mutableIntStateOf(0) }
-    var quizScore by remember(activeModel) { mutableIntStateOf(0) }
-    var quizCompleted by remember(activeModel) { mutableStateOf(false) }
+    var quizProgress by remember(activeModel) { mutableStateOf(HotspotQuizProgress()) }
+    val quizScore = quizProgress.score
+    val quizCompleted = quizProgress.isCompleted
     var quizFeedbackMessage by remember(activeModel) {
         mutableStateOf("دوّر المجسم 360° واضغط مباشرة على الدبوس الصحيح لتثبيت المعلومة بيدك!")
     }
@@ -142,23 +144,33 @@ fun Interactive4KLabScreen(
     val savedScoreEntity = modelScores.find { it.modelId == activeModel.modelId }
 
     val handlePartTapped: (Hotspot3DPart) -> Unit = { tappedPart ->
-        if (interactionMode == LabInteractionMode.PIN_DROP_QUIZ && !quizCompleted) {
-            val expectedPart = activeModel.parts[quizTargetIndex]
-            if (tappedPart.partId == expectedPart.partId) {
-                val newScore = quizScore + 1
-                quizScore = newScore
-                selectedPart = tappedPart
-                if (quizTargetIndex + 1 < activeModel.parts.size) {
-                    quizTargetIndex += 1
-                    val nextTarget = activeModel.parts[quizTargetIndex]
-                    quizFeedbackMessage = "عاشت إيدك! جواب وزاري مضبوط. الآن أين يقع: (${nextTarget.nameAr})؟"
-                } else {
-                    quizCompleted = true
-                    quizFeedbackMessage = "بطل الـ 100! ختمت جميع تأشيرات الرسم الوزاري (${newScore}/${activeModel.parts.size}) بنجاح!"
-                    onRecordQuizScore(activeModel.modelId, newScore, activeModel.parts.size)
+        if (interactionMode == LabInteractionMode.PIN_DROP_QUIZ && !quizProgress.isCompleted) {
+            val expectedPart = activeModel.parts[quizProgress.targetIndex]
+            val step = quizProgress.onPartTapped(tappedPart.partId, activeModel.parts.map { it.partId })
+            quizProgress = step.progress
+            when (step.outcome) {
+                HotspotTapOutcome.CORRECT -> {
+                    selectedPart = tappedPart
+                    val total = activeModel.parts.size
+                    if (step.progress.isCompleted) {
+                        val score = step.progress.score
+                        quizFeedbackMessage = if (score == total) {
+                            "بطل الـ 100! ختمت جميع تأشيرات الرسم الوزاري ($score/$total) من أول محاولة!"
+                        } else {
+                            "أكملت التحدي: أصبت $score من $total من أول محاولة. أعد التحدي حتى تصل إلى $total/$total."
+                        }
+                        onRecordQuizScore(activeModel.modelId, score, total)
+                    } else {
+                        val nextTarget = activeModel.parts[step.progress.targetIndex]
+                        quizFeedbackMessage = "عاشت إيدك! جواب وزاري مضبوط. الآن أين يقع: (${nextTarget.nameAr})؟"
+                    }
                 }
-            } else {
-                quizFeedbackMessage = "اقتربت! أنت ضغطت على (${tappedPart.nameAr})، بينما المطلوب هو: (${expectedPart.nameAr}). حاول مرة أخرى!"
+
+                HotspotTapOutcome.WRONG -> {
+                    quizFeedbackMessage = "اقتربت! أنت ضغطت على (${tappedPart.nameAr})، بينما المطلوب هو: (${expectedPart.nameAr}). حاول مرة أخرى!"
+                }
+
+                HotspotTapOutcome.IGNORED -> Unit
             }
         } else {
             selectedPart = tappedPart
@@ -196,7 +208,10 @@ fun Interactive4KLabScreen(
                         val isSelected = engine == web3DEngineType
                         FilterChip(
                             selected = isSelected,
-                            onClick = { web3DEngineType = engine },
+                            onClick = {
+                                web3DEngineType = engine
+                                engineFallbackNotice = null
+                            },
                             label = {
                                 Text(
                                     text = engine.labelAr,
@@ -218,6 +233,15 @@ fun Interactive4KLabScreen(
                             modifier = Modifier.testTag("engine_chip_${engine.name}")
                         )
                     }
+                }
+
+                engineFallbackNotice?.let { notice ->
+                    Text(
+                        text = notice,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = OnCoralLightContainer,
+                        modifier = Modifier.testTag("engine_fallback_notice")
+                    )
                 }
 
                 // Curriculum 3D Models Selector Row
@@ -276,9 +300,7 @@ fun Interactive4KLabScreen(
                     selected = interactionMode == LabInteractionMode.PIN_DROP_QUIZ,
                     onClick = {
                         interactionMode = LabInteractionMode.PIN_DROP_QUIZ
-                        quizTargetIndex = 0
-                        quizScore = 0
-                        quizCompleted = false
+                        quizProgress = HotspotQuizProgress()
                         quizFeedbackMessage = "دوّر المجسم 360° واضغط على الدبوس الذي يمثل: (${activeModel.parts.first().nameAr})"
                     },
                     modifier = Modifier
@@ -314,7 +336,7 @@ fun Interactive4KLabScreen(
                 simulationIntensity = simulationIntensity,
                 animPhase = animPhase,
                 cameraPresetTrigger = cameraPresetTrigger,
-                quizTargetPart = activeModel.parts.getOrElse(quizTargetIndex) { activeModel.parts.first() },
+                quizTargetPart = activeModel.parts.getOrElse(quizProgress.targetIndex) { activeModel.parts.first() },
                 quizCompleted = quizCompleted,
                 onOrbitDrag = { dx, dy ->
                     yawAngleDeg = normalizeAngle360(yawAngleDeg + dx * 0.65f)
@@ -341,6 +363,18 @@ fun Interactive4KLabScreen(
                     val found = activeModel.parts.find { it.partId == partId }
                     if (found != null) {
                         handlePartTapped(found)
+                    }
+                },
+                onWebEngineUnavailable = { failedEngine ->
+                    // e.g. no internet for <model-viewer>, or no WebGL on this phone: fall back to an
+                    // engine that works offline instead of leaving a black viewport.
+                    if (web3DEngineType == failedEngine) {
+                        web3DEngineType = if (failedEngine == Web3DEngineType.GOOGLE_MODEL_VIEWER) {
+                            Web3DEngineType.THREE_JS
+                        } else {
+                            Web3DEngineType.HYBRID_CANVAS_3D
+                        }
+                        engineFallbackNotice = "تعذّر تشغيل (${failedEngine.labelAr}) على هذا الجهاز أو بدون إنترنت، فانتقلنا تلقائياً إلى (${web3DEngineType.labelAr})."
                     }
                 }
             )
@@ -528,9 +562,7 @@ fun Interactive4KLabScreen(
                             if (quizCompleted) {
                                 Button(
                                     onClick = {
-                                        quizTargetIndex = 0
-                                        quizScore = 0
-                                        quizCompleted = false
+                                        quizProgress = HotspotQuizProgress()
                                         quizFeedbackMessage = "دوّر المجسم 360° واضغط على الدبوس الذي يمثل: (${activeModel.parts.first().nameAr})"
                                     },
                                     colors = ButtonDefaults.buttonColors(containerColor = TealPrimary)
@@ -678,7 +710,8 @@ private fun Interactive360ViewportCard(
     onResetCamera: () -> Unit,
     onSetPresetAngle: (Float, Float) -> Unit,
     onHotspotTapped: (Hotspot3DPart) -> Unit,
-    onHotspotIdSelectedFromWeb: (String) -> Unit
+    onHotspotIdSelectedFromWeb: (String) -> Unit,
+    onWebEngineUnavailable: (Web3DEngineType) -> Unit
 ) {
     Card(
         shape = RoundedCornerShape(22.dp),
@@ -766,6 +799,7 @@ private fun Interactive360ViewportCard(
                         autoRotate360 = autoOrbit360,
                         cameraPresetTrigger = cameraPresetTrigger,
                         onHotspotSelectedFromWeb = onHotspotIdSelectedFromWeb,
+                        onWebEngineUnavailable = onWebEngineUnavailable,
                         modifier = Modifier.fillMaxSize()
                     )
                 } else {

@@ -443,8 +443,10 @@ private fun DrawScope.draw3DPartLabel(
     val padY = 4.dp.toPx()
     val boxW = textLayout.size.width + padX * 2
     val boxH = textLayout.size.height + padY * 2
-    val left = (x - boxW / 2f).coerceIn(8f, size.width - boxW - 8f)
-    val top = (y - boxH).coerceIn(8f, size.height - boxH - 8f)
+    // coerceIn throws when max < min, which happens when a label is wider than the viewport
+    // (large system font size), so keep the upper bound at least as big as the lower one.
+    val left = (x - boxW / 2f).coerceIn(8f, (size.width - boxW - 8f).coerceAtLeast(8f))
+    val top = (y - boxH).coerceIn(8f, (size.height - boxH - 8f).coerceAtLeast(8f))
 
     drawRoundRect(
         color = if (isSelected) CoralSecondary.copy(alpha = 0.92f) else Color(0xCC0F172A),

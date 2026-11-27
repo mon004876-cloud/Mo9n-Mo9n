@@ -29,14 +29,24 @@ enum class Web3DEngineType(val jsKey: String, val labelAr: String) {
 }
 
 private class SadisJsBridge(
-    private val onPartClicked: (String) -> Unit
+    private val onPartClicked: (String) -> Unit,
+    private val onEngineUnavailable: (String) -> Unit
 ) {
     private val mainHandler = Handler(Looper.getMainLooper())
 
+    /** Called by the page only when the student taps a label, never for programmatic highlights. */
     @JavascriptInterface
     fun onHotspotSelected(partId: String) {
         mainHandler.post {
             onPartClicked(partId)
+        }
+    }
+
+    /** Called when an engine cannot run here (no WebGL, or <model-viewer> could not load offline). */
+    @JavascriptInterface
+    fun onEngineUnavailable(engineKey: String) {
+        mainHandler.post {
+            onEngineUnavailable(engineKey)
         }
     }
 }
@@ -52,10 +62,12 @@ fun ThreeJsAndModelViewerComposable(
     autoRotate360: Boolean,
     cameraPresetTrigger: Pair<Float, Float>?,
     onHotspotSelectedFromWeb: (String) -> Unit,
+    onWebEngineUnavailable: (Web3DEngineType) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val currentOnHotspotSelected by rememberUpdatedState(onHotspotSelectedFromWeb)
+    val currentOnEngineUnavailable by rememberUpdatedState(onWebEngineUnavailable)
     var pageLoaded by remember { mutableStateOf(false) }
 
     val webView = remember {
@@ -67,18 +79,25 @@ fun ThreeJsAndModelViewerComposable(
             settings.apply {
                 javaScriptEnabled = true
                 domStorageEnabled = true
-                allowFileAccess = true
-                allowContentAccess = true
+                // The page and three.js ship in the app's assets, which stay readable through
+                // file:///android_asset; the page needs no other file or content access, and
+                // nothing may load over plain http.
+                allowFileAccess = false
+                allowContentAccess = false
                 mediaPlaybackRequiresUserGesture = false
                 cacheMode = WebSettings.LOAD_DEFAULT
-                mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+                mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
             }
             setBackgroundColor(android.graphics.Color.TRANSPARENT)
             webChromeClient = WebChromeClient()
             addJavascriptInterface(
-                SadisJsBridge { clickedId ->
-                    currentOnHotspotSelected(clickedId)
-                },
+                SadisJsBridge(
+                    onPartClicked = { clickedId -> currentOnHotspotSelected(clickedId) },
+                    onEngineUnavailable = { engineKey ->
+                        Web3DEngineType.entries.firstOrNull { it.jsKey == engineKey }
+                            ?.let { currentOnEngineUnavailable(it) }
+                    }
+                ),
                 "AndroidBridge"
             )
             webViewClient = object : WebViewClient() {

@@ -5,11 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Three.js & Google Model Viewer 360° 4K Lab</title>
 
-    <!-- Load Three.js & GLTFExporter & OrbitControls + Google Model Viewer (<model-viewer>) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/GLTFExporter.js"></script>
-    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
+    <!-- three.js r128 ships inside the app (assets/vendor/three), so the Three.js engine works offline. -->
+    <script src="vendor/three/three.min.js"></script>
+    <script src="vendor/three/OrbitControls.js"></script>
+    <script src="vendor/three/GLTFExporter.js"></script>
+    <!-- <model-viewer> is an ES module and only loads online; if it fails the app falls back to Three.js. -->
+    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"
+            onerror="window.modelViewerLoadFailed = true; window.onModelViewerLoadFailed && window.onModelViewerLoadFailed();"></script>
 
     <style>
         * {
@@ -153,7 +155,21 @@
 
         let scene, camera, renderer, controls, rootGroup, particleGroup;
         let hotspotAnchors = [];
-        let clock = new THREE.Clock();
+        // Created in initThreeScene: touching THREE here would stop the whole script when it is missing.
+        let clock = null;
+        let threeReady = false;
+        let modelViewerUrl = null;
+
+        function notifyEngineUnavailable(engineKey) {
+            if (window.AndroidBridge && window.AndroidBridge.onEngineUnavailable) {
+                window.AndroidBridge.onEngineUnavailable(engineKey);
+            }
+        }
+
+        function showViewerMessage(text) {
+            engineBadge.textContent = text;
+            angleReadout.textContent = "";
+        }
 
         const MODEL_PARTS = {
             "model_bio_mitochondria": [
@@ -179,16 +195,27 @@
 
         function initThreeScene() {
             if (typeof THREE === 'undefined') {
-                engineBadge.textContent = "Three.js Fallback Mode";
+                showViewerMessage("تعذّر تحميل محرك Three.js");
+                notifyEngineUnavailable("THREE_JS");
                 return;
             }
 
+            try {
+                renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
+            } catch (e) {
+                // No WebGL on this device: let the app switch to its built-in canvas engine.
+                renderer = null;
+                showViewerMessage("هذا الجهاز لا يدعم WebGL");
+                notifyEngineUnavailable("THREE_JS");
+                return;
+            }
+
+            clock = new THREE.Clock();
             scene = new THREE.Scene();
 
             camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
             camera.position.set(0, 1.4, 4.2);
 
-            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setPixelRatio(Math.min(window.devicePixelRatio || 2, 3));
             renderer.shadowMap.enabled = true;
@@ -239,6 +266,7 @@
                 controls.autoRotateSpeed = 2.2;
             }
 
+            threeReady = true;
             build3DModelGeometry(currentModelId);
 
             window.addEventListener('resize', () => {
@@ -251,11 +279,23 @@
             animate();
         }
 
+        // Every slider move rebuilds the model, so free the old meshes' GPU buffers each time;
+        // removing them from the scene alone leaks memory until low-end phones slow down or crash.
         function clearGroup(group) {
+            const geometries = new Set();
+            const materials = new Set();
             while (group.children.length > 0) {
                 const obj = group.children[0];
                 group.remove(obj);
+                obj.traverse(node => {
+                    if (node.geometry) geometries.add(node.geometry);
+                    if (node.material) {
+                        (Array.isArray(node.material) ? node.material : [node.material]).forEach(m => materials.add(m));
+                    }
+                });
             }
+            geometries.forEach(g => g.dispose());
+            materials.forEach(m => m.dispose());
         }
 
         function build3DModelGeometry(modelId) {
@@ -499,32 +539,69 @@
                 div.innerHTML = `<span class="hotspot-dot"></span>${part.name}`;
                 div.onclick = (e) => {
                     e.stopPropagation();
-                    selectPartFromJS(part.id);
+                    pickPartByUser(part.id);
                 };
                 labelsOverlay.appendChild(div);
                 hotspotAnchors.push({ id: part.id, name: part.name, basePos: part.pos, el: div });
             });
         }
 
-        function selectPartFromJS(partId) {
+        // Highlight only. The app calls this when it changes the selection itself, so it must not
+        // report back: an echo here counted as a tap and gave wrong answers in the label quiz.
+        function highlightPart(partId) {
             selectedPartId = partId;
             hotspotAnchors.forEach(h => {
                 if (h.id === partId) h.el.classList.add('selected');
                 else h.el.classList.remove('selected');
             });
+        }
+
+        // A real tap by the student: highlight it and tell the app.
+        function pickPartByUser(partId) {
+            highlightPart(partId);
             if (window.AndroidBridge && window.AndroidBridge.onHotspotSelected) {
                 window.AndroidBridge.onHotspotSelected(partId);
             }
         }
 
+        function isModelViewerLoaded() {
+            return !!(window.customElements && window.customElements.get('model-viewer'));
+        }
+
+        // Reports <model-viewer> as unavailable when its script failed (offline) or never arrived.
+        function checkModelViewerAvailability() {
+            if (!threeReady || window.modelViewerLoadFailed) {
+                notifyEngineUnavailable("MODEL_VIEWER");
+                return;
+            }
+            if (isModelViewerLoaded()) return;
+            setTimeout(() => {
+                if (currentEngine === "MODEL_VIEWER" && !isModelViewerLoaded()) {
+                    notifyEngineUnavailable("MODEL_VIEWER");
+                }
+            }, 8000);
+        }
+
+        window.onModelViewerLoadFailed = function () {
+            if (currentEngine === "MODEL_VIEWER") notifyEngineUnavailable("MODEL_VIEWER");
+        };
+
+        let modelViewerExportSeq = 0;
+
         function syncSceneToGoogleModelViewer() {
-            if (!THREE.GLTFExporter || !rootGroup) return;
+            if (typeof THREE === 'undefined' || !THREE.GLTFExporter || !rootGroup) return;
             const exporter = new THREE.GLTFExporter();
+            // Exports finish asynchronously and not always in order; only the newest one may be
+            // shown, otherwise switching model and engine together could display the old model.
+            const exportSeq = ++modelViewerExportSeq;
             exporter.parse(
                 rootGroup,
                 function (result) {
+                    if (exportSeq !== modelViewerExportSeq) return;
                     const blob = new Blob([result], { type: 'model/gltf-binary' });
+                    if (modelViewerUrl) URL.revokeObjectURL(modelViewerUrl);
                     const url = URL.createObjectURL(blob);
+                    modelViewerUrl = url;
                     modelViewerEl.src = url;
 
                     // Populate native <model-viewer> 3D hotspots
@@ -537,7 +614,7 @@
                         btn.dataset.position = `${p.pos[0]}m ${p.pos[1]}m ${p.pos[2]}m`;
                         btn.dataset.normal = `0m 1m 0m`;
                         btn.textContent = p.name;
-                        btn.onclick = () => selectPartFromJS(p.id);
+                        btn.onclick = () => pickPartByUser(p.id);
                         modelViewerEl.appendChild(btn);
                     });
                 },
@@ -547,7 +624,8 @@
 
         function animate() {
             requestAnimationFrame(animate);
-            if (!renderer || !scene || !camera) return;
+            // <model-viewer> draws the model itself; rendering Three.js underneath would waste battery.
+            if (!renderer || !scene || !camera || currentEngine === "MODEL_VIEWER") return;
 
             const elapsed = clock.getElapsedTime();
 
@@ -618,21 +696,27 @@
 
                 if (engineChanged) {
                     if (currentEngine === "MODEL_VIEWER") {
+                        // Hide the Three.js canvas: <model-viewer> has a transparent background, so
+                        // both copies of the model used to show on top of each other.
+                        container.style.display = 'none';
                         modelViewerEl.style.display = 'block';
                         labelsOverlay.style.display = 'none';
                         engineBadge.textContent = "Google <model-viewer> 360° GLTF";
                         syncSceneToGoogleModelViewer();
+                        checkModelViewerAvailability();
                     } else {
+                        container.style.display = 'block';
                         modelViewerEl.style.display = 'none';
                         labelsOverlay.style.display = 'block';
                         engineBadge.textContent = "Three.js WebGL 360° Engine";
+                        if (currentEngine === "THREE_JS" && !threeReady) notifyEngineUnavailable("THREE_JS");
                     }
                 }
 
                 if (modelChanged || explodeChanged || simChanged) {
                     build3DModelGeometry(currentModelId);
                 } else {
-                    selectPartFromJS(selectedPartId);
+                    highlightPart(selectedPartId);
                 }
             },
             setCameraAngle: function(azimDeg, polarDeg) {
