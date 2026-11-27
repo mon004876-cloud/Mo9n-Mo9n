@@ -43,22 +43,31 @@ def num(n, lang):
 
 
 def figure(page, lang, colored=False):
-    art = (HERE / page["art"]).read_text(encoding="utf-8")
-    vb = re.search(r'viewBox="([^"]+)"', art).group(1)
-    _, _, w, h = vb.split()
-    art = art.replace("<svg ", f'<svg x="0" y="0" width="{w}" height="{h}" ', 1)
+    """Drawing + numbered callouts. Art can be our own SVG or a raster image from Gemini
+    (PNG/JPG, with "art_size": [width, height] in the page file)."""
+    if page["art"].lower().endswith(".svg"):
+        art = (HERE / page["art"]).read_text(encoding="utf-8")
+        _, _, w, h = re.search(r'viewBox="([^"]+)"', art).group(1).split()
+        art = art.replace("<svg ", f'<svg x="0" y="0" width="{w}" height="{h}" ', 1)
+    else:
+        w, h = page["art_size"]
+        art = f'<image href="../{page["art"]}" x="0" y="0" width="{w}" height="{h}"/>'
+        colored = False  # a raster drawing cannot be auto-colored
 
+    k = page.get("callout_scale", 1)  # bigger badges for big raster images
     callouts = []
     for p in page["parts"]:
+        if not p.get("at"):
+            continue  # positions not set yet
         (x0, y0), (x1, y1) = p["at"], p["label"]
         dx, dy = x0 - x1, y0 - y1
         d = (dx * dx + dy * dy) ** 0.5 or 1
-        ex, ey = x1 + dx / d * 15, y1 + dy / d * 15  # stop the line at the circle edge
+        ex, ey = x1 + dx / d * 15 * k, y1 + dy / d * 15 * k  # stop the line at the circle edge
         callouts.append(
-            f'<line x1="{x0}" y1="{y0}" x2="{ex:.1f}" y2="{ey:.1f}" class="lead"/>'
-            f'<circle cx="{x0}" cy="{y0}" r="3" class="dot"/>'
-            f'<circle cx="{x1}" cy="{y1}" r="15" class="badge"/>'
-            f'<text x="{x1}" y="{y1}" class="badge-n">{num(p["n"], lang)}</text>'
+            f'<g style="--k:{k}"><line x1="{x0}" y1="{y0}" x2="{ex:.1f}" y2="{ey:.1f}" class="lead" stroke-width="{1.3 * k}"/>'
+            f'<circle cx="{x0}" cy="{y0}" r="{3 * k}" class="dot"/>'
+            f'<circle cx="{x1}" cy="{y1}" r="{15 * k}" class="badge" stroke-width="{1.8 * k}"/>'
+            f'<text x="{x1}" y="{y1}" class="badge-n" font-size="{15 * k}">{num(p["n"], lang)}</text></g>'
         )
 
     fills = ""
@@ -67,7 +76,8 @@ def figure(page, lang, colored=False):
             c, n = p["color"], p["n"]
             fills += (f".colored .p{n}{{fill:{c}!important}}"
                       f".colored .p{n}.tube{{fill:none!important;stroke:{c}!important}}")
-    return (f'<svg class="fig{" colored" if colored else ""}" viewBox="{page["view_box"]}" '
+    vb = page.get("view_box") or f"0 0 {w} {h}"
+    return (f'<svg class="fig{" colored" if colored else ""}" viewBox="{vb}" '
             f'xmlns="http://www.w3.org/2000/svg"><style>{fills}</style>{art}{"".join(callouts)}</svg>')
 
 
@@ -93,10 +103,10 @@ h1{font-size:21pt;margin:10px 0 2px;line-height:1.15}
 h1 small{font-size:11pt;font-weight:400;color:#666;margin-inline-start:8px}
 .intro{margin:2px 0 4px;color:#333;font-size:9.8pt}
 .fig{width:100%;flex:1;min-height:0;display:block}
-.fig .lead{stroke:#1d1d1f;stroke-width:1.3}
+.fig .lead{stroke:#1d1d1f}
 .fig .dot{fill:#1d1d1f}
-.fig .badge{fill:#fff;stroke:#1d1d1f;stroke-width:1.8}
-.fig .badge-n{font:700 15px Inter,NotoAr,sans-serif;text-anchor:middle;dominant-baseline:central;fill:#1d1d1f}
+.fig .badge{fill:#fff;stroke:#1d1d1f}
+.fig .badge-n{font-family:Inter,NotoAr,sans-serif;font-weight:700;text-anchor:middle;dominant-baseline:central;fill:#1d1d1f}
 .instr{font-size:9.3pt;color:#444;margin:4px 0 8px;padding:6px 10px;background:#f3f3f3;border-radius:6px}
 .cols{display:grid;grid-template-columns:1.25fr 1fr;gap:20px}
 h2{font-size:11.5pt;margin:0 0 6px;text-transform:uppercase;letter-spacing:.05em}
