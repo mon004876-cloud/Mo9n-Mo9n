@@ -8,15 +8,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.example.R
 
+// Full Cairo and Tajawal files with Arabic glyphs (SIL OFL 1.1, see assets/licenses). The previous
+// files were Latin-only subsets, so every Arabic letter silently fell back to the system font.
 val CairoFontFamily = FontFamily(
     Font(R.font.cairo, FontWeight.Normal),
-    Font(R.font.cairo, FontWeight.Bold)
+    Font(R.font.cairo_bold, FontWeight.Bold)
 )
 
 val TajawalFontFamily = FontFamily(
     Font(R.font.tajawal, FontWeight.Normal),
-    Font(R.font.tajawal, FontWeight.Medium),
-    Font(R.font.tajawal, FontWeight.Bold)
+    Font(R.font.tajawal_medium, FontWeight.Medium),
+    Font(R.font.tajawal_bold, FontWeight.Bold)
 )
 
 val Typography = Typography(
