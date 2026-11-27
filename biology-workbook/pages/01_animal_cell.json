@@ -1,0 +1,35 @@
+{
+  "id": 1,
+  "art": "art/01_animal_cell.svg",
+  "unit": {"en": "Unit 1: The Cell", "ar": "الوحدة الأولى: الخلية"},
+  "title": {"en": "Animal Cell", "ar": "الخلية الحيوانية"},
+  "intro": {
+    "en": "Animal cells are eukaryotic: their DNA is enclosed in a nucleus, and they contain organelles surrounded by membranes. Unlike plant cells, they have no cell wall and no chloroplasts.",
+    "ar": "الخلية الحيوانية خلية حقيقية النواة: مادتها الوراثية محاطة بغلاف نووي، وتحتوي على عضيات محاطة بأغشية. وعلى خلاف الخلية النباتية، لا تمتلك جداراً خلوياً ولا بلاستيدات خضراء."
+  },
+  "view_box": "-75 60 790 470",
+  "parts": [
+    {"n": 1,  "en": "Nucleus",                      "ar": "النواة",                        "color": "#c7b4ea", "color_en": "purple",       "color_ar": "بنفسجي",     "at": [250, 215], "label": [-35, 150]},
+    {"n": 2,  "en": "Nucleolus",                    "ar": "النوية",                        "color": "#6f7fe0", "color_en": "dark blue",    "color_ar": "أزرق غامق",  "at": [291, 255], "label": [-35, 205]},
+    {"n": 3,  "en": "Cell membrane",                "ar": "الغشاء البلازمي",               "color": "#f7b56b", "color_en": "orange",       "color_ar": "برتقالي",    "at": [541, 250], "label": [675, 290]},
+    {"n": 4,  "en": "Cytoplasm",                    "ar": "السايتوبلازم",                  "color": "#fff3bf", "color_en": "light yellow", "color_ar": "أصفر فاتح",  "at": [290, 478], "label": [675, 440]},
+    {"n": 5,  "en": "Mitochondria",                 "ar": "المايتوكوندريا",                "color": "#f28b82", "color_en": "red",          "color_ar": "أحمر",       "at": [198, 139], "label": [-35, 95]},
+    {"n": 6,  "en": "Rough endoplasmic reticulum",  "ar": "الشبكة الإندوبلازمية الخشنة",   "color": "#9cc4fb", "color_en": "blue",         "color_ar": "أزرق",       "at": [447, 249], "label": [675, 225]},
+    {"n": 7,  "en": "Smooth endoplasmic reticulum", "ar": "الشبكة الإندوبلازمية الملساء",  "color": "#b5e3a4", "color_en": "light green",  "color_ar": "أخضر فاتح",  "at": [490, 390], "label": [675, 365]},
+    {"n": 8,  "en": "Golgi apparatus",              "ar": "جهاز كولجي",                    "color": "#f6b6d6", "color_en": "pink",         "color_ar": "وردي",       "at": [214, 404], "label": [-35, 400]},
+    {"n": 9,  "en": "Ribosomes",                    "ar": "الرايبوسومات",                  "color": "#8d6e63", "color_en": "brown",        "color_ar": "بني",        "at": [470, 200], "label": [675, 150]},
+    {"n": 10, "en": "Lysosome",                     "ar": "الجسم الحال",                   "color": "#5fbf8a", "color_en": "dark green",   "color_ar": "أخضر غامق",  "at": [114, 331], "label": [-35, 335]},
+    {"n": 11, "en": "Centrioles",                   "ar": "المريكزات",                     "color": "#bdbdbd", "color_en": "gray",         "color_ar": "رمادي",      "at": [156, 262], "label": [-35, 270]}
+  ],
+  "questions": [
+    {"en": "Which organelle releases energy from food during cellular respiration?",
+     "ar": "ما العضية التي تحرر الطاقة من الغذاء أثناء التنفس الخلوي؟",
+     "answer_en": "Mitochondria (5)", "answer_ar": "المايتوكوندريا (٥)"},
+    {"en": "Which structure controls what enters and leaves the cell?",
+     "ar": "ما التركيب الذي يتحكم بدخول المواد إلى الخلية وخروجها منها؟",
+     "answer_en": "Cell membrane (3)", "answer_ar": "الغشاء البلازمي (٣)"},
+    {"en": "Name two structures found in plant cells but NOT in this animal cell.",
+     "ar": "اذكر تركيبين يوجدان في الخلية النباتية ولا يوجدان في هذه الخلية الحيوانية.",
+     "answer_en": "Any two: cell wall, chloroplasts, large central vacuole", "answer_ar": "أي اثنين: الجدار الخلوي، البلاستيدات الخضراء، الفجوة العصارية الكبيرة"}
+  ]
+}
