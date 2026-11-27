@@ -1,0 +1,518 @@
+{
+  "01_energy": [
+    {
+      "text": "GRANDMA'S ENERGETIC KITCHEN: PHOTOSYNTHESIS & RESPIRATION",
+      "box": [
+        50,
+        120,
+        850,
+        159
+      ],
+      "weight": 600
+    },
+    {
+      "text": "(Light-Independent)",
+      "box": [
+        662,
+        310,
+        846,
+        338
+      ],
+      "weight": 400
+    },
+    {
+      "erase": [
+        95,
+        819,
+        213,
+        873
+      ]
+    },
+    {
+      "erase": [
+        44,
+        857,
+        152,
+        912
+      ]
+    },
+    {
+      "text": "GLUCOSE",
+      "box": [
+        128,
+        997,
+        246,
+        1033
+      ],
+      "weight": 500
+    },
+    {
+      "text": "CELLULAR RESPIRATION",
+      "box": [
+        70,
+        1097,
+        318,
+        1135
+      ],
+      "weight": 600
+    },
+    {
+      "text": "(Grandma's Engine)",
+      "box": [
+        90,
+        1136,
+        300,
+        1164
+      ],
+      "weight": 400
+    }
+  ],
+  "02_cell_division": [
+    {
+      "erase": [
+        672,
+        270,
+        792,
+        309
+      ]
+    },
+    {
+      "erase": [
+        56,
+        370,
+        282,
+        399
+      ]
+    },
+    {
+      "text": "CHROMOSOMES",
+      "box": [
+        58,
+        371,
+        262,
+        399
+      ],
+      "weight": 600,
+      "erase": false
+    },
+    {
+      "text": "(each X = 2 sister chromatids)",
+      "box": [
+        52,
+        400,
+        218,
+        425
+      ],
+      "weight": 400
+    },
+    {
+      "erase": [
+        52,
+        710,
+        284,
+        739
+      ]
+    },
+    {
+      "text": "CHROMOSOMES",
+      "box": [
+        55,
+        711,
+        262,
+        739
+      ],
+      "weight": 600,
+      "erase": false
+    },
+    {
+      "text": "(each X = 2 sister chromatids)",
+      "box": [
+        58,
+        740,
+        268,
+        763
+      ],
+      "weight": 400
+    },
+    {
+      "erase": [
+        648,
+        1086,
+        792,
+        1176
+      ]
+    },
+    {
+      "erase": [
+        723,
+        1026,
+        745,
+        1090
+      ]
+    }
+  ],
+  "03_genetics_ecology": [
+    {
+      "text": "RECESSIVE\nALLELE\n(b)",
+      "box": [
+        40,
+        1072,
+        176,
+        1158
+      ],
+      "weight": 500
+    },
+    {
+      "text": "Double Dominant!\nDominant trait shows!",
+      "box": [
+        157,
+        601,
+        292,
+        641
+      ],
+      "weight": 500
+    },
+    {
+      "text": "FOOD CHAIN",
+      "box": [
+        620,
+        1090,
+        754,
+        1122
+      ],
+      "weight": 600
+    },
+    {
+      "text": "(Energy flows up)",
+      "box": [
+        608,
+        1123,
+        764,
+        1153
+      ],
+      "weight": 400
+    }
+  ],
+  "04_protein_synthesis": [
+    {
+      "text": "TRANS-",
+      "box": [
+        456,
+        466,
+        570,
+        493
+      ],
+      "weight": 600
+    },
+    {
+      "text": "SPECIAL\nDELIVERY!",
+      "box": [
+        205,
+        820,
+        305,
+        897
+      ],
+      "weight": 600
+    },
+    {
+      "erase": [
+        198,
+        846,
+        209,
+        895
+      ]
+    },
+    {
+      "erase": [
+        302,
+        846,
+        311,
+        872
+      ]
+    },
+    {
+      "erase": [
+        798,
+        518,
+        834,
+        606
+      ]
+    },
+    {
+      "text": "GENE COPY",
+      "box": [
+        40,
+        812,
+        172,
+        864
+      ],
+      "weight": 600,
+      "erase_box": [
+        38,
+        800,
+        175,
+        864
+      ]
+    },
+    {
+      "text": "(mRNA)",
+      "box": [
+        40,
+        865,
+        172,
+        892
+      ],
+      "weight": 400
+    },
+    {
+      "text": "CAG",
+      "box": [
+        313,
+        953,
+        370,
+        985
+      ],
+      "weight": 500,
+      "rot": -13
+    },
+    {
+      "text": "AUG",
+      "box": [
+        508,
+        1018,
+        556,
+        1046
+      ],
+      "weight": 500,
+      "rot": -20
+    }
+  ],
+  "05_dna_replication": [
+    {
+      "erase": [
+        262,
+        308,
+        372,
+        341
+      ]
+    },
+    {
+      "text": "DOUBLE",
+      "box": [
+        272,
+        313,
+        364,
+        339
+      ],
+      "weight": 500,
+      "erase": false
+    },
+    {
+      "text": "(Phosphate + Sugar + Base)",
+      "box": [
+        78,
+        230,
+        196,
+        256
+      ],
+      "weight": 400
+    },
+    {
+      "text": "T",
+      "box": [
+        171,
+        299,
+        184,
+        310
+      ],
+      "weight": 500,
+      "rot": -8,
+      "size": 17
+    },
+    {
+      "text": "T",
+      "box": [
+        207,
+        382,
+        220,
+        395
+      ],
+      "weight": 500,
+      "rot": -8,
+      "size": 17
+    },
+    {
+      "text": "C",
+      "box": [
+        247,
+        407,
+        260,
+        420
+      ],
+      "weight": 500,
+      "rot": -8,
+      "size": 17
+    },
+    {
+      "text": "G",
+      "box": [
+        260,
+        444,
+        273,
+        457
+      ],
+      "weight": 500,
+      "rot": -8,
+      "size": 17
+    },
+    {
+      "text": "T",
+      "box": [
+        308,
+        525,
+        320,
+        537
+      ],
+      "weight": 500,
+      "rot": -8,
+      "size": 17
+    }
+  ],
+  "07_water": [
+    {
+      "erase": [
+        60,
+        186,
+        330,
+        250
+      ]
+    },
+    {
+      "text": "Hydrogen (H)",
+      "box": [
+        70,
+        188,
+        320,
+        240
+      ],
+      "font": "comic",
+      "erase": false
+    },
+    {
+      "erase": [
+        333,
+        286,
+        402,
+        333
+      ]
+    },
+    {
+      "text": "H",
+      "box": [
+        337,
+        290,
+        390,
+        330
+      ],
+      "font": "comic",
+      "erase": false
+    },
+    {
+      "text": "O",
+      "box": [
+        918,
+        267,
+        946,
+        305
+      ],
+      "font": "comic"
+    },
+    {
+      "erase": [
+        1145,
+        545,
+        1400,
+        607
+      ]
+    },
+    {
+      "erase": [
+        1286,
+        584,
+        1334,
+        611
+      ]
+    },
+    {
+      "text": "Partial Negative",
+      "box": [
+        1142,
+        548,
+        1398,
+        604
+      ],
+      "font": "comic",
+      "erase": false
+    },
+    {
+      "erase": [
+        1268,
+        609,
+        1291,
+        641
+      ]
+    },
+    {
+      "line": [
+        1271,
+        625,
+        1288,
+        625,
+        4
+      ]
+    }
+  ],
+  "08_macromolecules": [
+    {
+      "text": "Glycosidic\nBonds\n(the Glue)",
+      "box": [
+        398,
+        499,
+        507,
+        588
+      ],
+      "weight": 500
+    },
+    {
+      "text": "Polysaccharides\n(Starch & Glycogen)",
+      "box": [
+        320,
+        688,
+        456,
+        770
+      ],
+      "weight": 500
+    }
+  ],
+  "09_membrane": [
+    {
+      "erase": [
+        388,
+        1063,
+        522,
+        1072
+      ]
+    },
+    {
+      "text": "(Heads + Tails)",
+      "box": [
+        383,
+        1037,
+        524,
+        1066
+      ],
+      "weight": 400
+    }
+  ],
+  "06_enzymes": []
+}
