@@ -1,35 +1,137 @@
 {
   "id": 6,
-  "art": "art/06_enzymes.png",
-  "art_size": null,
-  "callout_scale": 2.5,
-  "_note": "Fill art_size and each part's at/label (in image pixels) once the Gemini image is in art/.",
-  "unit": {"en": "Unit 2: The Chemistry of Life", "ar": "الوحدة الثانية: كيمياء الحياة"},
-  "title": {"en": "Grandma the Tailor: Enzymes", "ar": "الجدة الخيّاطة: الإنزيمات"},
+  "art": "art/06_enzymes.svg",
+  "callout_scale": 2.2,
+  "unit": {
+    "en": "Unit 2: The Chemistry of Life",
+    "ar": "الوحدة الثانية: كيمياء الحياة"
+  },
+  "title": {
+    "en": "Grandma the Tailor: Enzymes",
+    "ar": "الجدة الخيّاطة: الإنزيمات"
+  },
   "intro": {
     "en": "Enzymes are proteins that speed up chemical reactions in cells by lowering the activation energy. Each enzyme has an active site whose shape fits one specific substrate. The enzyme is not used up, so it can work again and again.",
     "ar": "الإنزيمات بروتينات تسرّع التفاعلات الكيميائية في الخلية عن طريق خفض طاقة التنشيط. لكل إنزيم موقع فعال يلائم شكله مادة تفاعل محددة. ولا يُستهلك الإنزيم في التفاعل، لذلك يمكن استخدامه مرات عديدة."
   },
   "parts": [
-    {"n": 1, "en": "Substrate",                  "ar": "مادة التفاعل",                "color": "#fff176", "color_en": "yellow",      "color_ar": "أصفر",      "at": null, "label": null},
-    {"n": 2, "en": "Enzyme",                     "ar": "الإنزيم",                     "color": "#9cc4fb", "color_en": "blue",        "color_ar": "أزرق",      "at": null, "label": null},
-    {"n": 3, "en": "Active site",                "ar": "الموقع الفعال",               "color": "#c7b4ea", "color_en": "purple",      "color_ar": "بنفسجي",    "at": null, "label": null},
-    {"n": 4, "en": "Enzyme–substrate complex (induced fit)", "ar": "معقد الإنزيم ومادة التفاعل (التلاؤم المستحث)", "color": "#b5e3a4", "color_en": "light green", "color_ar": "أخضر فاتح", "at": null, "label": null},
-    {"n": 5, "en": "Products",                   "ar": "النواتج",                     "color": "#f7b56b", "color_en": "orange",      "color_ar": "برتقالي",   "at": null, "label": null},
-    {"n": 6, "en": "Enzyme, unchanged and reused", "ar": "الإنزيم لا يتغير ويُعاد استخدامه", "color": "#9cc4fb", "color_en": "blue (same as 2)", "color_ar": "أزرق (مثل ٢)", "at": null, "label": null}
+    {
+      "n": 1,
+      "en": "Substrate",
+      "ar": "مادة التفاعل",
+      "color": "#fff176",
+      "color_en": "yellow",
+      "color_ar": "أصفر",
+      "at": [
+        195,
+        200
+      ],
+      "label": [
+        -90,
+        200
+      ]
+    },
+    {
+      "n": 2,
+      "en": "Active site",
+      "ar": "الموقع الفعال",
+      "color": "#c7b4ea",
+      "color_en": "purple",
+      "color_ar": "بنفسجي",
+      "at": [
+        330,
+        615
+      ],
+      "label": [
+        -90,
+        545
+      ]
+    },
+    {
+      "n": 3,
+      "en": "Enzyme–substrate complex (induced fit)",
+      "ar": "معقد الإنزيم ومادة التفاعل (التلاؤم المستحث)",
+      "color": "#b5e3a4",
+      "color_en": "light green",
+      "color_ar": "أخضر فاتح",
+      "at": [
+        370,
+        650
+      ],
+      "label": [
+        -90,
+        655
+      ]
+    },
+    {
+      "n": 4,
+      "en": "Enzyme",
+      "ar": "الإنزيم",
+      "color": "#9cc4fb",
+      "color_en": "blue",
+      "color_ar": "أزرق",
+      "at": [
+        280,
+        730
+      ],
+      "label": [
+        -90,
+        760
+      ]
+    },
+    {
+      "n": 5,
+      "en": "Products",
+      "ar": "النواتج",
+      "color": "#f7b56b",
+      "color_en": "orange",
+      "color_ar": "برتقالي",
+      "at": [
+        800,
+        1050
+      ],
+      "label": [
+        986,
+        1050
+      ]
+    },
+    {
+      "n": 6,
+      "en": "Enzyme, unchanged and reused",
+      "ar": "الإنزيم لا يتغير ويُعاد استخدامه",
+      "color": "#9cc4fb",
+      "color_en": "blue (same as 4)",
+      "color_ar": "أزرق (مثل ٤)",
+      "at": [
+        300,
+        1100
+      ],
+      "label": [
+        -90,
+        1100
+      ]
+    }
   ],
   "questions": [
-    {"en": "Why can one enzyme be used again and again?",
-     "ar": "لماذا يمكن استخدام الإنزيم نفسه مرات عديدة؟",
-     "answer_en": "It is not changed or used up by the reaction.",
-     "answer_ar": "لأنه لا يتغير ولا يُستهلك في التفاعل."},
-    {"en": "What happens to the active site when the substrate binds (induced fit)?",
-     "ar": "ماذا يحدث للموقع الفعال عندما ترتبط به مادة التفاعل (التلاؤم المستحث)؟",
-     "answer_en": "It changes shape slightly to fit the substrate more tightly.",
-     "answer_ar": "يتغير شكله قليلاً ليحيط بمادة التفاعل بإحكام أكبر."},
-    {"en": "How do enzymes speed up chemical reactions?",
-     "ar": "كيف تسرّع الإنزيمات التفاعلات الكيميائية؟",
-     "answer_en": "They lower the activation energy.",
-     "answer_ar": "تخفض طاقة التنشيط."}
-  ]
+    {
+      "en": "Why can one enzyme be used again and again?",
+      "ar": "لماذا يمكن استخدام الإنزيم نفسه مرات عديدة؟",
+      "answer_en": "It is not changed or used up by the reaction.",
+      "answer_ar": "لأنه لا يتغير ولا يُستهلك في التفاعل."
+    },
+    {
+      "en": "What happens to the active site when the substrate binds (induced fit)?",
+      "ar": "ماذا يحدث للموقع الفعال عندما ترتبط به مادة التفاعل (التلاؤم المستحث)؟",
+      "answer_en": "It changes shape slightly to fit the substrate more tightly.",
+      "answer_ar": "يتغير شكله قليلاً ليحيط بمادة التفاعل بإحكام أكبر."
+    },
+    {
+      "en": "How do enzymes speed up chemical reactions?",
+      "ar": "كيف تسرّع الإنزيمات التفاعلات الكيميائية؟",
+      "answer_en": "They lower the activation energy.",
+      "answer_ar": "تخفض طاقة التنشيط."
+    }
+  ],
+  "source_image": "art/src/06_enzymes.jpg",
+  "view_box": "-170 0 1236 1200"
 }
